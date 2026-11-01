@@ -38,12 +38,12 @@ resource "aws_instance" "this" {
   }
 }
 
-# Optional separate data volume (not formatted or mounted, do that in user_data)
+# Optional separate data volume formatted and mounted in user_data
 
 resource "aws_ebs_volume" "data" {
   count = var.data_volume_size > 0 ? 1 : 0
 
-  availability_zone = aws_instance.this.availability_zone
+  availability_zone = var.availability_zone
   size              = var.data_volume_size
   type              = "gp3"
   encrypted         = true

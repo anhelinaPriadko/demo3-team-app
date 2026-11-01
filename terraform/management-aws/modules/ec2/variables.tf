@@ -13,6 +13,11 @@ variable "subnet_id" {
   description = "ID of the subnet to launch the instance in (private subnet)"
 }
 
+variable "availability_zone" {
+  type = string
+  description = "Subnet availability zone"
+}
+
 variable "security_group_ids" {
   type        = list(string)
   description = "Security group IDs attached to the instance"
@@ -32,7 +37,7 @@ variable "ami_id" {
 variable "root_volume_size" {
   type        = number
   description = "Root volume size in GiB"
-  default     = 30
+  default     = 15
 }
 
 variable "data_volume_size" {
