@@ -59,4 +59,5 @@ resource "aws_volume_attachment" "data" {
   device_name = "/dev/sdf"
   volume_id   = aws_ebs_volume.data[0].id
   instance_id = aws_instance.this.id
+  stop_instance_before_detaching = true
 }

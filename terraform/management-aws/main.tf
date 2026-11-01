@@ -24,7 +24,7 @@ module "gitlab" {
   source = "./modules/ec2"
 
   name                 = "demo3-gitlab"
-  instance_type        = "c7i-flex.large"
+  instance_type        = "m7i-flex.large"
   subnet_id            = module.network.private_subnet_id
   availability_zone   = var.availability_zone
   security_group_ids   = [module.sg.gitlab_sg_id]

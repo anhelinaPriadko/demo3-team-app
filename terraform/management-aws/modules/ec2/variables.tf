@@ -25,7 +25,7 @@ variable "security_group_ids" {
 
 variable "iam_instance_profile" {
   type        = string
-  description = "Name of the IAM instance profile (needs AmazonSSMManagedInstanceCore for Session Manager)"
+  description = "Name of the IAM instance profile"
 }
 
 variable "ami_id" {
