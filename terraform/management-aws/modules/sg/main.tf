@@ -45,6 +45,15 @@ resource "aws_vpc_security_group_ingress_rule" "gitlab_https_from_runner" {
   description                  = "Runners clone code and report job results"
 }
 
+resource "aws_vpc_security_group_ingress_rule" "gitlab_http_from_runner" {
+  security_group_id            = aws_security_group.gitlab.id
+  referenced_security_group_id = aws_security_group.runner.id
+  ip_protocol                  = "tcp"
+  from_port                    = 80
+  to_port                      = 80
+  description                  = "Runners clone code over HTTP (GitLab without TLS)"
+}
+
 # gitlab-sg: egress
 # All outbound for now (repo sync over SSH, SSM, AWS APIs, package repos).
 # Narrow to TCP 22 and 443 once everything works.
@@ -66,7 +75,8 @@ resource "aws_vpc_security_group_egress_rule" "runner_all" {
 }
 
 # signoz-sg: OTLP in from the VPC, plus any extra CIDRs (e.g. GCP after the VPN)
-# The UI has no rule on purpose: reach it with SSM port forwarding.
+# and the UI from the VPC. Access from your own machine does not need the UI
+# rule: SSM port forwarding connects from inside the instance.
 
 resource "aws_vpc_security_group_ingress_rule" "signoz_otlp_grpc" {
   for_each = local.otlp_source_cidrs
@@ -88,6 +98,15 @@ resource "aws_vpc_security_group_ingress_rule" "signoz_otlp_http" {
   from_port         = 4318
   to_port           = 4318
   description       = "OTLP HTTP"
+}
+
+resource "aws_vpc_security_group_ingress_rule" "signoz_ui" {
+  security_group_id = aws_security_group.signoz.id
+  cidr_ipv4         = var.vpc_cidr
+  ip_protocol       = "tcp"
+  from_port         = var.signoz_ui_port
+  to_port           = var.signoz_ui_port
+  description       = "SigNoz UI from the management VPC"
 }
 
 resource "aws_vpc_security_group_egress_rule" "signoz_all" {

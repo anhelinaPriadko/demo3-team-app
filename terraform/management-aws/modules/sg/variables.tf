@@ -13,3 +13,9 @@ variable "additional_otlp_cidrs" {
   description = "Extra CIDRs allowed to send OTLP telemetry to SigNoz, e.g. the GCP application CIDR after the VPN is added"
   default     = []
 }
+
+variable "signoz_ui_port" {
+  type        = number
+  description = "Port the SigNoz UI listens on (8080 in the Docker standalone install)"
+  default     = 8080
+}
