@@ -70,3 +70,34 @@ resource "google_compute_firewall" "iap_ssh" {
     ports    = ["22"]
   }
 }
+
+# Management VPC over the VPN: SSH for pipeline deployments, ICMP for connectivity tests
+
+resource "google_compute_firewall" "ssh_from_management" {
+  count = var.management_cidr != null ? 1 : 0
+
+  name      = "${var.name_prefix}-allow-ssh-from-management"
+  network   = var.network
+  direction = "INGRESS"
+
+  source_ranges = [var.management_cidr]
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
+  }
+}
+
+resource "google_compute_firewall" "icmp_from_management" {
+  count = var.management_cidr != null ? 1 : 0
+
+  name      = "${var.name_prefix}-allow-icmp-from-management"
+  network   = var.network
+  direction = "INGRESS"
+
+  source_ranges = [var.management_cidr]
+
+  allow {
+    protocol = "icmp"
+  }
+}

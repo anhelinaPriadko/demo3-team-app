@@ -50,3 +50,21 @@ variable "db_data_disk_size" {
   description = "Data disk size in GiB for each PostgreSQL VM"
   default     = 20
 }
+
+variable "management_cidr" {
+  type        = string
+  description = "CIDR of the AWS management VPC, allowed to SSH in over the VPN"
+  default     = "10.10.0.0/16"
+}
+
+variable "app_instances" {
+  type = map(object({
+    zone        = string
+    internal_ip = optional(string)
+  }))
+  description = "Application VMs behind Nginx, keyed by name suffix (demo3-<key>). Put them in different zones for redundancy"
+  default = {
+    "app-1" = { zone = "europe-west3-a", internal_ip = "10.20.1.2" }
+    "app-2" = { zone = "europe-west3-b", internal_ip = "10.20.1.5" }
+  }
+}

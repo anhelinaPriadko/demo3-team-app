@@ -58,6 +58,12 @@ variable "reserve_internal_ip" {
   default     = false
 }
 
+variable "internal_ip" {
+  type        = string
+  description = "Fixed internal IP to reserve. When null, GCP picks one. Only used with reserve_internal_ip"
+  default     = null
+}
+
 variable "external_ip" {
   type        = bool
   description = "Give the instance a reserved static external IP"

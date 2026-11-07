@@ -1,10 +1,12 @@
 locals {
-  instances = {
-    nginx     = module.nginx
-    app       = module.app
-    db_master = module.db_master
-    db_slave  = module.db_slave
-  }
+  instances = merge(
+    {
+      nginx     = module.nginx
+      db_master = module.db_master
+      db_slave  = module.db_slave
+    },
+    module.app,
+  )
 }
 
 output "instance_names" {
@@ -17,6 +19,11 @@ output "private_ips" {
   value       = { for name, m in local.instances : name => m.private_ip }
 }
 
+output "app_upstream" {
+  description = "App servers for the Nginx upstream block"
+  value       = [for m in module.app : "${m.private_ip}:${var.app_port}"]
+}
+
 output "nginx_public_ip" {
   description = "Static public IP of Nginx (for the Pingdom check and DNS)"
   value       = module.nginx.public_ip
@@ -26,7 +33,7 @@ output "iap_ssh_commands" {
   description = "Ready-to-run IAP SSH commands"
   value = {
     for name, m in local.instances :
-    name => "gcloud compute ssh ${m.name} --zone ${var.zone} --project ${var.project_id} --tunnel-through-iap"
+    name => "gcloud compute ssh ${m.name} --zone ${m.zone} --project ${var.project_id} --tunnel-through-iap"
   }
 }
 

@@ -12,3 +12,8 @@ output "public_ip" {
   description = "Reserved external IP address, null when the instance has none"
   value       = one(google_compute_address.external[*].address)
 }
+
+output "zone" {
+  description = "Zone of the instance"
+  value       = google_compute_instance.this.zone
+}

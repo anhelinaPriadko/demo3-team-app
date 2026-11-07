@@ -17,6 +17,8 @@ module "firewall" {
   name_prefix = var.name_prefix
   network     = module.network.network_name
   app_port    = var.app_port
+
+  management_cidr = var.management_cidr
 }
 
 module "storage" {
@@ -46,15 +48,17 @@ module "nginx" {
 }
 
 module "app" {
-  source = "./modules/compute"
+  source   = "./modules/compute"
+  for_each = var.app_instances
 
-  name                  = "${var.name_prefix}-app"
+  name                  = "${var.name_prefix}-${each.key}"
   machine_type          = "e2-medium"
-  zone                  = var.zone
+  zone                  = each.value.zone
   subnet_self_link      = module.network.private_subnet_self_link
   network_tags          = ["app"]
   service_account_email = module.iam.app_sa_email
   reserve_internal_ip   = true
+  internal_ip           = each.value.internal_ip
 }
 
 module "db_master" {

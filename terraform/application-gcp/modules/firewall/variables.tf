@@ -18,3 +18,9 @@ variable "iap_source_range" {
   description = "Source range of IAP TCP forwarding"
   default     = "35.235.240.0/20"
 }
+
+variable "management_cidr" {
+  type        = string
+  description = "CIDR of the management VPC reached over the VPN. When null, no rules for it are created"
+  default     = null
+}

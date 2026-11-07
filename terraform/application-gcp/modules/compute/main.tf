@@ -7,6 +7,7 @@ resource "google_compute_address" "internal" {
 
   name         = "${var.name}-internal"
   address_type = "INTERNAL"
+  address      = var.internal_ip
   subnetwork   = var.subnet_self_link
   region       = data.google_compute_subnetwork.this.region
 }
