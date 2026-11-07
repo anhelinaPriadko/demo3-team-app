@@ -13,7 +13,7 @@ module "sg" {
   vpc_id   = module.network.vpc_id
   vpc_cidr = module.network.vpc_cidr
 
-  # additional_otlp_cidrs = ["10.20.0.0/16"]
+  additional_otlp_cidrs = ["10.20.0.0/16"]
 }
 
 module "iam" {
