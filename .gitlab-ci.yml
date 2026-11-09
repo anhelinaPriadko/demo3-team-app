@@ -1,5 +1,4 @@
 stages:
-  - init
   - validate
   - plan
   - apply
@@ -15,11 +14,7 @@ variables:
 
 before_script:
   - cd $TF_DIR
-
-terraform_init:
-  stage: init
-  script:
-    - terraform init
+  - terraform init
 
 terraform_validate:
   stage: validate
