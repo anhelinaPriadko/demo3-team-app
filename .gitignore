@@ -45,3 +45,8 @@ logs/
 .mvn/
 mvnw
 mvnw.cmd
+
+### PostgreSQL ###
+database/config/db.env
+*.secret
+*.key
