@@ -45,3 +45,7 @@ logs/
 .mvn/
 mvnw
 mvnw.cmd
+
+### Terraform ###
+*.terraform*
+terraform.tfvars
