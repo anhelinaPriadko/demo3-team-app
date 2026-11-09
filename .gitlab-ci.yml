@@ -1,0 +1,44 @@
+stages:
+  - init
+  - validate
+  - plan
+  - apply
+
+default:
+  tags:
+    - gcp
+    - terraform
+    - shell
+
+variables:
+  TF_DIR: "terraform"
+
+before_script:
+  - cd $TF_DIR
+
+terraform_init:
+  stage: init
+  script:
+    - terraform init
+
+terraform_validate:
+  stage: validate
+  script:
+    - terraform validate
+
+terraform_plan:
+  stage: plan
+  script:
+    - terraform plan -out=tfplan
+  artifacts:
+    paths:
+      - $TF_DIR/tfplan
+    expire_in: 1 hour
+
+terraform_apply:
+  stage: apply
+  script:
+    - terraform apply -auto-approve tfplan
+  when: manual
+  only:
+    - main
