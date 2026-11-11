@@ -67,13 +67,14 @@ if [[ -d "$PG_DATA" ]] &&
     fi
 
     echo "=== Moving existing data directory ==="
-
-    mv "$PG_DATA" "${PG_DATA}.backup.$(date +%Y%m%d%H%M%S)"
 fi
 
 echo "=== Stopping PostgreSQL ==="
 
 systemctl stop postgresql
+if [[ "$HAS_DATA" == "true" ]]; then
+    mv "$PG_DATA" "${PG_DATA}.backup.$(date +%Y%m%d%H%M%S)"
+fi
 
 echo "=== Preparing data directory ==="
 
