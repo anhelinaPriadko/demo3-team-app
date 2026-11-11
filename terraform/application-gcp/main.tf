@@ -2,6 +2,12 @@ locals {
   bucket_name = "${var.name_prefix}-app-${var.project_id}"
 }
 
+resource "google_project_service" "resourcemanager" {
+  project            = var.project_id
+  service            = "cloudresourcemanager.googleapis.com"
+  disable_on_destroy = false
+}
+
 module "network" {
   source = "./modules/network"
 
@@ -33,6 +39,8 @@ module "iam" {
 
   name_prefix = var.name_prefix
   bucket_name = module.storage.bucket_name
+
+  depends_on = [google_project_service.resourcemanager]
 }
 
 module "nginx" {
