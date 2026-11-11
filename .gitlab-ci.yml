@@ -10,7 +10,7 @@ default:
     - shell
 
 variables:
-  TF_DIR: "application-gcp"
+  TF_DIR: "terraform/application-gcp"
 
 before_script:
   - cd $TF_DIR
