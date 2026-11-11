@@ -24,6 +24,7 @@ terraform_validate:
 terraform_plan:
   stage: plan
   script:
+    - terraform apply -target=google_project_service.resourcemanager -auto-approve
     - terraform plan -out=tfplan
   artifacts:
     paths:
