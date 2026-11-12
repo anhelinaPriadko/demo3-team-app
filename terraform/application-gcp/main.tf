@@ -52,7 +52,7 @@ module "app" {
   for_each = var.app_instances
 
   name                  = "${var.name_prefix}-${each.key}"
-  machine_type          = "e2-medium"
+  machine_type          = "e2-small"
   zone                  = each.value.zone
   subnet_self_link      = module.network.private_subnet_self_link
   network_tags          = ["app"]
