@@ -35,15 +35,8 @@ resource "google_storage_bucket_iam_member" "app" {
   member = "serviceAccount:${google_service_account.this["app"].email}"
 }
 
-# The db account is limited to the backup path. Note that a conditional binding
-# does not cover listing the bucket, only reading and writing objects by name.
 resource "google_storage_bucket_iam_member" "db" {
   bucket = var.bucket_name
-  role   = "roles/storage.objectUser"
+  role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${google_service_account.this["db"].email}"
-
-  condition {
-    title      = "backup-path-only"
-    expression = "resource.name.startsWith(\"projects/_/buckets/${var.bucket_name}/objects/${var.db_backup_prefix}\")"
-  }
 }
