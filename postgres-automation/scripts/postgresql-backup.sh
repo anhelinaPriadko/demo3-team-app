@@ -46,3 +46,6 @@ echo "Backup size:"
 du -h "$BACKUP_FILE"
 
 echo "PostgreSQL backup completed successfully"
+
+# Uploading a backup to Cloud Storage
+gcloud storage cp "$BACKUP_FILE" gs://demo3-app-demo3-team1/backups/
