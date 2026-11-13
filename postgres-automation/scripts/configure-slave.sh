@@ -72,8 +72,15 @@ fi
 echo "=== Stopping PostgreSQL ==="
 
 systemctl stop postgresql
-if [[ "$HAS_DATA" == "true" ]]; then
-    mv "$PG_DATA" "${PG_DATA}.backup.$(date +%Y%m%d%H%M%S)"
+HAS_DATA="false"
+if [[ -d "$PG_DATA" ]] && [[ -n "$(find "$PG_DATA" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
+    if [[ "${REINITIALIZE_REPLICA:-false}" != "true" ]]; then
+        echo "ERROR: Existing PostgreSQL data detected."
+        echo "Set REINITIALIZE_REPLICA=true to replace it."
+        exit 1
+    fi
+    HAS_DATA="true"
+    echo "=== Moving existing data directory ==="
 fi
 
 echo "=== Preparing data directory ==="
