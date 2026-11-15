@@ -35,7 +35,7 @@ variable "team_emails" {
 variable "vm_service_accounts" {
   type        = list(string)
   description = "Roles of the VM service accounts created by application-gcp (<name_prefix>-<role>-sa). They must already exist when this root is applied"
-  default     = ["nginx", "app", "db"]
+  default     = ["nginx", "app", "db", "etcd"]
 }
 
 variable "can_sudo" {
@@ -72,8 +72,14 @@ variable "runner_aws_role" {
   default     = "demo3-runner"
 }
 
-variable "vm_zones" {
-  type        = list(string)
-  description = "Zones the demo3-* VMs run in. The start/stop permission is granted for these zones only, so add a zone here when a VM is placed in a new one"
-  default     = ["europe-west3-a", "europe-west3-b"]
+variable "vm_zone_primary" {
+  type        = string
+  description = "Primary zone the demo3-* VMs run in. Used to grant start/stop permission for the selected zone."
+  default     = "europe-west3-a"
+}
+
+variable "vm_zone_secondary" {
+  type = string
+  description = "Secondary zone the demo3-* VMs run in. Used to grant start/stop permission for the selected zone."
+  default = "europe-west3-b"
 }

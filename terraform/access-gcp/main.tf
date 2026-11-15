@@ -1,6 +1,4 @@
 # Access for the teammates: connect to the VMs through IAP with OS Login.
-# Applied by hand with your own credentials, not by the application pipeline.
-# The VM service accounts come from application-gcp, so apply that root first.
 
 locals {
   members = toset([for email in var.team_emails : "user:${email}"])
@@ -43,9 +41,7 @@ resource "google_service_account_iam_member" "team_use" {
   member             = each.value.member
 }
 
-# Power on and off. Only start and stop are granted here: looking up the instance and
-# waiting for the operation to finish come from roles/compute.viewer above.
-# Limited by condition to the demo3-* instances, so other VMs in the project stay untouched.
+# Power on and off. 
 
 resource "google_project_iam_custom_role" "vm_power" {
   count = var.can_power_vms ? 1 : 0
@@ -59,23 +55,35 @@ resource "google_project_iam_custom_role" "vm_power" {
   ]
 }
 
-resource "google_project_iam_member" "team_power" {
-  for_each = var.can_power_vms ? local.members : toset([])
+resource "google_project_iam_member" "team_power_primary_zone" {
+  for_each = local.members
 
   project = var.project_id
   role    = google_project_iam_custom_role.vm_power[0].id
-  member  = each.value
+  member  = each.key
 
   condition {
     title       = "${var.name_prefix}-instances-only"
     description = "Only instances named ${var.name_prefix}-*"
-    expression  = join(" || ", [for z in var.vm_zones : "resource.name.startsWith(\"projects/${var.project_id}/zones/${z}/instances/${var.name_prefix}-\")"])
+    expression  = "resource.name.startsWith(\"projects/${var.project_id}/zones/${var.vm_zone_primary}/instances/${var.name_prefix}-\")"
   }
 }
 
-# Deploy identity for the GitLab runner on AWS. A service account, not a Google user:
-# the runner holds only an SSH private key. Its public key is added to this account's
-# OS Login profile by hand (see outputs), so no service account key is ever created.
+resource "google_project_iam_member" "team_power_secondary_zone" {
+  for_each = local.members
+
+  project = var.project_id
+  role    = google_project_iam_custom_role.vm_power[0].id
+  member  = each.key
+
+  condition {
+    title       = "${var.name_prefix}-instances-only"
+    description = "Only instances named ${var.name_prefix}-*"
+    expression  = "resource.name.startsWith(\"projects/${var.project_id}/zones/${var.vm_zone_secondary}/instances/${var.name_prefix}-\")"
+  }
+}
+
+# Deploy identity for the GitLab runner on AWS.
 
 resource "google_service_account" "deploy" {
   account_id   = "${var.name_prefix}-deploy-sa"
@@ -119,7 +127,7 @@ locals {
   terraform_roles = [
     "roles/compute.admin",
     "roles/iam.serviceAccountAdmin",
-    "roles/iam.serviceAccountUser", # attach the VM service accounts to the VMs
+    "roles/iam.serviceAccountUser",
     "roles/storage.admin",
   ]
 
