@@ -21,6 +21,11 @@ output "power_commands" {
   } : {}
 }
 
+output "vm_sa_emails" {
+  description = "VM service accounts by role, used by application-gcp"
+  value       = { for k, sa in google_service_account.vm : k => sa.email }
+}
+
 output "deploy_sa_email" {
   description = "Service account the GitLab runner logs in as"
   value       = google_service_account.deploy.email

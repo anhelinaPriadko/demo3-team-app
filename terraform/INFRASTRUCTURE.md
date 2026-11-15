@@ -86,18 +86,18 @@ There are no public SSH ports and no shared passwords. GCP VMs use OS Login, so 
 
 ## Access control (IAM)
 
-**GCP** has one service account per VM role, so no VM uses the default account:
+**GCP** has one service account per VM role, so no VM uses the default account. Logs and metrics go to SigNoz, so the accounts need no Cloud Logging or Monitoring roles:
 
 | Service account        | Used by          | Access                                                                                                                                                              |
 | ---------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `demo3-nginx-sa`     | Nginx            | write logs and metrics                                                                                                                                              |
-| `demo3-app-sa`       | both app servers | logs and metrics, read/write objects in the application bucket                                                                                                      |
-| `demo3-db-sa`        | both DB VMs      | logs and metrics, read/write objects under `backups/` in the bucket                                                                                               |
-| `demo3-etcd-sa`      | etcd witness     | logs and metrics only                                                                                                                                               |
+| `demo3-nginx-sa`     | Nginx            | none                                                                                                                                                                |
+| `demo3-app-sa`       | both app servers | read/write objects in the application bucket                                                                                                                        |
+| `demo3-db-sa`        | both DB VMs      | read/write objects in the application bucket                                                                                                                        |
+| `demo3-etcd-sa`      | etcd witness     | none                                                                                                                                                                |
 | `demo3-deploy-sa`    | GitLab runner    | OS Login on the VMs, no other rights                                                                                                                                |
-| `demo3-terraform-sa` | GitLab runner    | create and change the application infrastructure (`application-gcp` root). Reached without a key, through Workload Identity Federation from the runner's AWS role |
+| `demo3-terraform-sa` | GitLab runner    | create and change the application infrastructure (`application-gcp` root), no IAM admin rights. Reached without a key, through Workload Identity Federation from the runner's AWS role |
 
-Teammates (listed in the `access-gcp` root) get IAP tunnel access, OS Login with sudo, instance viewer, and start/stop on the `demo3-*` VMs.
+All GCP service accounts are managed in the `access-gcp` root, applied by hand; the pipeline cannot create accounts or change project IAM. Teammates (listed in the `access-gcp` root) get IAP tunnel access, OS Login with sudo, instance viewer, and start/stop on the `demo3-*` VMs.
 
 **AWS** has one instance role per machine (`demo3-gitlab`, `demo3-signoz`, `demo3-runner`) with Session Manager access only. The GitLab role can additionally read its repository sync secrets from SSM Parameter Store under `/demo3/gitlab-sync/`.
 
@@ -112,15 +112,15 @@ Each root is separate, with its own state. Apply in this order:
 | # | Root                | Creates                                                                                | State                                                         |
 | - | ------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
 | 1 | `management-aws`  | AWS network, security groups, IAM, GitLab, SigNoz, runner                              | S3 `demo3-tfstate-mgmt-bucket`, `demo3/terraform.tfstate` |
-| 2 | `application-gcp` | GCP network, firewall, IAM, bucket, the six VMs                                       | GCS `demo3-tfstate-gcp`, `demo3/application`              |
-| 3 | `vpn`             | HA VPN, tunnels, BGP, route propagation                                                | S3, `demo3/vpn.tfstate`                                     |
-| 4 | `access-gcp`      | team access, VM power rights, deploy and Terraform service accounts, runner federation | GCS, `demo3/access`                                         |
+| 2 | `access-gcp`      | VM service accounts, team access, VM power rights, deploy and Terraform service accounts, runner federation | GCS, `demo3/access`                                         |
+| 3 | `application-gcp` | GCP network, firewall, bucket and its IAM, the six VMs                                 | GCS `demo3-tfstate-gcp`, `demo3/application`              |
+| 4 | `vpn`             | HA VPN, tunnels, BGP, route propagation                                                | S3, `demo3/vpn.tfstate`                                     |
 
 Each root has an `OVERVIEW.md` with the details of that part (`vpn`, `access-gcp`, `application-gcp`, `management-aws`).
 
 ## Good to know
 
-- **Cost.** NAT gateways, two VPN connections and the running VMs bill by the hour. Stop the VMs when not in use, and run `terraform destroy` (in reverse order: `access-gcp`, `vpn`, then the other two) after the demo. A reserved external IP that is not attached to a running VM is billed.
+- **Cost.** NAT gateways, two VPN connections and the running VMs bill by the hour. Stop the VMs when not in use, and run `terraform destroy` (in reverse order: `vpn`, `application-gcp`, `access-gcp`, then `management-aws`; `access-gcp` can stay if the identities should outlive the demo) after the demo. A reserved external IP that is not attached to a running VM is billed.
 - **Changing IPs or subnets** means replacing the VMs. Plan it.
 - **Region changes on GCP:** the VPN learns routes per region (`europe-west3`). VMs in another region would need global routing on the VPC.
 - **SigNoz** is reachable from GCP only when its collector is actually running; the network path is open either way.

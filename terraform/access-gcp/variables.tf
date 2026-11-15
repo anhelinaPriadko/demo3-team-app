@@ -17,7 +17,7 @@ variable "zone" {
 
 variable "name_prefix" {
   type        = string
-  description = "Prefix used for the VM service accounts, must match application-gcp"
+  description = "Prefix for the service account IDs, must match application-gcp (it looks the VM accounts up by name)"
   default     = "demo3"
 }
 
@@ -30,12 +30,6 @@ variable "team_emails" {
     condition     = alltrue([for e in var.team_emails : can(regex("^[^@\\s]+@[^@\\s]+$", e))])
     error_message = "Every entry must be an email address, for example anna@gmail.com."
   }
-}
-
-variable "vm_service_accounts" {
-  type        = list(string)
-  description = "Roles of the VM service accounts created by application-gcp (<name_prefix>-<role>-sa). They must already exist when this root is applied"
-  default     = ["nginx", "app", "db", "etcd"]
 }
 
 variable "can_sudo" {
@@ -79,7 +73,7 @@ variable "vm_zone_primary" {
 }
 
 variable "vm_zone_secondary" {
-  type = string
+  type        = string
   description = "Secondary zone the demo3-* VMs run in. Used to grant start/stop permission for the selected zone."
-  default = "europe-west3-b"
+  default     = "europe-west3-b"
 }

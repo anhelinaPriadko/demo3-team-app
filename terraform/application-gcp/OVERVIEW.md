@@ -1,23 +1,22 @@
 # application-gcp
 
-Terraform root for the application environment on Google Cloud: network, firewall, service accounts, a storage bucket and six virtual machines (Nginx, two application servers, a PostgreSQL master and replica, and an etcd witness for the database cluster). All resources are prefixed `demo3-` (`name_prefix`). Region `europe-west3`; the VMs are in zone `europe-west3-a`, except `demo3-app-2` and `demo3-db-witness` in `europe-west3-b`.
+Terraform root for the application environment on Google Cloud: network, firewall, a storage bucket and six virtual machines (Nginx, two application servers, a PostgreSQL master and replica, and an etcd witness for the database cluster). All resources are prefixed `demo3-` (`name_prefix`). Region `europe-west3`; the VMs are in zone `europe-west3-a`, except `demo3-app-2` and `demo3-db-witness` in `europe-west3-b`.
 
 State: GCS bucket `demo3-tfstate-gcp`, prefix `demo3/application`. Provider `hashicorp/google ~> 7.0`.
 
 ## Role in the platform
 
-This root is applied before `vpn` and `access-gcp`, which read its outputs and use its service accounts. It is the part of the infrastructure that the GitLab runner can manage through the `demo3-terraform-sa` service account (see `access-gcp`).
+This root is applied after `access-gcp`, which creates the VM service accounts, and before `vpn`, which reads its outputs. It is the part of the infrastructure that the GitLab runner can manage through the `demo3-terraform-sa` service account (see `access-gcp`).
 
 ## Structure
 
-`main.tf` wires five modules. All VM roles share one generic `compute` module.
+`main.tf` wires four modules. All VM roles share one generic `compute` module.
 
 | Module | Creates |
 |---|---|
 | `network` | custom-mode VPC, public and private subnet, Cloud Router and Cloud NAT for the private subnet |
 | `firewall` | tag-based ingress rules (see Allowed traffic) |
-| `iam` | one service account per VM role (nginx, app, db, etcd), their project roles and bucket permissions |
-| `storage` | the application bucket |
+| `storage` | the application bucket and its IAM bindings for the app and db service accounts |
 | `compute` | one VM with boot disk, optional data disk, optional reserved internal and external address, shielded VM and OS Login settings. Called for nginx, each app server (`for_each` over `app_instances`), db master, db slave and the witness |
 
 ## Network
@@ -73,16 +72,16 @@ The two `management` rules exist only when `management_cidr` is set. No rule ope
 
 ## IAM
 
-Each VM role has its own service account, so the default Compute Engine account is not used.
+Each VM role has its own service account, so the default Compute Engine account is not used. The accounts and their project roles are created in `access-gcp`; this root reads them with the `google_service_account` data source, attaches them to the VMs and grants the bucket permissions.
 
 | Service account | Used by | Access |
 |---|---|---|
-| `demo3-nginx-sa` | Nginx | log writer, metric writer |
-| `demo3-app-sa` | both app servers | log writer, metric writer, `storage.objectAdmin` on the bucket |
-| `demo3-db-sa` | both DB VMs | log writer, metric writer, `storage.objectUser` on the bucket, restricted by condition to the `backups/` prefix |
-| `demo3-etcd-sa` | etcd witness | log writer, metric writer only, no bucket access |
+| `demo3-nginx-sa` | Nginx | none |
+| `demo3-app-sa` | both app servers | `storage.objectAdmin` on the bucket |
+| `demo3-db-sa` | both DB VMs | `storage.objectAdmin` on the bucket |
+| `demo3-etcd-sa` | etcd witness | none |
 
-Bucket permissions are granted on the bucket, not project-wide. Because of the `backups/` condition, the DB account cannot list the bucket.
+The accounts have no project roles; logs and metrics go to SigNoz. Bucket permissions are granted on the bucket, not project-wide. `migrations.tf` holds the `moved` and `removed` blocks for the move of the service accounts to `access-gcp`; it can be deleted after that apply.
 
 ## Variables
 

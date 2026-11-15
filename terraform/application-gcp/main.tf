@@ -2,6 +2,17 @@ locals {
   bucket_name = "${var.name_prefix}-app-${var.project_id}"
 }
 
+# The VM service accounts are created in access-gcp (applied by hand, before this root).
+# This root only attaches them to the VMs and grants them access to the bucket.
+data "google_service_account" "vm" {
+  for_each   = toset(["nginx", "app", "db", "etcd"])
+  account_id = "${var.name_prefix}-${each.key}-sa"
+}
+
+locals {
+  vm_sa_email = { for k, sa in data.google_service_account.vm : k => sa.email }
+}
+
 module "network" {
   source = "./modules/network"
 
@@ -24,15 +35,10 @@ module "firewall" {
 module "storage" {
   source = "./modules/storage"
 
-  name     = local.bucket_name
-  location = var.region
-}
-
-module "iam" {
-  source = "./modules/iam"
-
-  name_prefix = var.name_prefix
-  bucket_name = module.storage.bucket_name
+  name         = local.bucket_name
+  location     = var.region
+  app_sa_email = local.vm_sa_email["app"]
+  db_sa_email  = local.vm_sa_email["db"]
 }
 
 module "nginx" {
@@ -43,7 +49,7 @@ module "nginx" {
   zone                  = var.zone
   subnet_self_link      = module.network.public_subnet_self_link
   network_tags          = ["web"]
-  service_account_email = module.iam.nginx_sa_email
+  service_account_email = local.vm_sa_email["nginx"]
   external_ip           = true
 }
 
@@ -56,7 +62,7 @@ module "app" {
   zone                  = each.value.zone
   subnet_self_link      = module.network.private_subnet_self_link
   network_tags          = ["app"]
-  service_account_email = module.iam.app_sa_email
+  service_account_email = local.vm_sa_email["app"]
   reserve_internal_ip   = true
   internal_ip           = each.value.internal_ip
 }
@@ -69,7 +75,7 @@ module "db_master" {
   zone                  = var.zone
   subnet_self_link      = module.network.private_subnet_self_link
   network_tags          = ["db"]
-  service_account_email = module.iam.db_sa_email
+  service_account_email = local.vm_sa_email["db"]
   reserve_internal_ip   = true
   data_disk_size        = var.db_data_disk_size
 
@@ -89,7 +95,7 @@ module "db_slave" {
   zone                  = var.zone
   subnet_self_link      = module.network.private_subnet_self_link
   network_tags          = ["db"]
-  service_account_email = module.iam.db_sa_email
+  service_account_email = local.vm_sa_email["db"]
   reserve_internal_ip   = true
   data_disk_size        = var.db_data_disk_size
 
@@ -109,6 +115,6 @@ module "db_witness" {
   zone                  = var.witness_zone
   subnet_self_link      = module.network.private_subnet_self_link
   network_tags          = ["etcd"]
-  service_account_email = module.iam.etcd_sa_email
+  service_account_email = local.vm_sa_email["etcd"]
   reserve_internal_ip   = true
 }

@@ -13,3 +13,13 @@ variable "force_destroy" {
   description = "Delete the bucket with its objects on destroy. Fine for a demo"
   default     = true
 }
+
+variable "app_sa_email" {
+  type        = string
+  description = "Email of the app service account, gets objectAdmin on the bucket"
+}
+
+variable "db_sa_email" {
+  type        = string
+  description = "Email of the database service account, gets objectAdmin on the bucket (backups)"
+}
