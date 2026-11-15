@@ -100,3 +100,15 @@ module "db_slave" {
     }
   })
 }
+
+module "db_witness" {
+  source = "./modules/compute"
+
+  name                  = "${var.name_prefix}-db-witness"
+  machine_type          = "e2-small"
+  zone                  = var.witness_zone
+  subnet_self_link      = module.network.private_subnet_self_link
+  network_tags          = ["etcd"]
+  service_account_email = module.iam.etcd_sa_email
+  reserve_internal_ip   = true
+}

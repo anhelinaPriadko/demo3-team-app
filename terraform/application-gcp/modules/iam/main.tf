@@ -1,5 +1,5 @@
 locals {
-  roles = toset(["nginx", "app", "db"])
+  roles = toset(["nginx", "app", "db", "etcd"])
 
   # Every VM writes logs and metrics
   project_roles = ["roles/logging.logWriter", "roles/monitoring.metricWriter"]

@@ -1,9 +1,10 @@
 locals {
   instances = merge(
     {
-      nginx     = module.nginx
-      db_master = module.db_master
-      db_slave  = module.db_slave
+      nginx      = module.nginx
+      db_master  = module.db_master
+      db_slave   = module.db_slave
+      db_witness = module.db_witness
     },
     module.app,
   )

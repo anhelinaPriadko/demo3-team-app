@@ -1,6 +1,6 @@
 # application-gcp
 
-Terraform root for the application environment on Google Cloud: network, firewall, service accounts, a storage bucket and five virtual machines (Nginx, two application servers, a PostgreSQL master and replica). All resources are prefixed `demo3-` (`name_prefix`). Region `europe-west3`; the VMs are in zone `europe-west3-a`, except `demo3-app-2` in `europe-west3-b`.
+Terraform root for the application environment on Google Cloud: network, firewall, service accounts, a storage bucket and six virtual machines (Nginx, two application servers, a PostgreSQL master and replica, and an etcd witness for the database cluster). All resources are prefixed `demo3-` (`name_prefix`). Region `europe-west3`; the VMs are in zone `europe-west3-a`, except `demo3-app-2` and `demo3-db-witness` in `europe-west3-b`.
 
 State: GCS bucket `demo3-tfstate-gcp`, prefix `demo3/application`. Provider `hashicorp/google ~> 7.0`.
 
@@ -10,15 +10,15 @@ This root is applied before `vpn` and `access-gcp`, which read its outputs and u
 
 ## Structure
 
-`main.tf` wires five modules. The three VM roles share one generic `compute` module.
+`main.tf` wires five modules. All VM roles share one generic `compute` module.
 
 | Module | Creates |
 |---|---|
 | `network` | custom-mode VPC, public and private subnet, Cloud Router and Cloud NAT for the private subnet |
 | `firewall` | tag-based ingress rules (see Allowed traffic) |
-| `iam` | one service account per VM role (nginx, app, db), their project roles and bucket permissions |
+| `iam` | one service account per VM role (nginx, app, db, etcd), their project roles and bucket permissions |
 | `storage` | the application bucket |
-| `compute` | one VM with boot disk, optional data disk, optional reserved internal and external address, shielded VM and OS Login settings. Called for nginx, each app server (`for_each` over `app_instances`), db master and db slave |
+| `compute` | one VM with boot disk, optional data disk, optional reserved internal and external address, shielded VM and OS Login settings. Called for nginx, each app server (`for_each` over `app_instances`), db master, db slave and the witness |
 
 ## Network
 
@@ -26,7 +26,7 @@ This root is applied before `vpn` and `access-gcp`, which read its outputs and u
 |---|---|
 | VPC | `demo3-vpc`, custom mode, `10.20.0.0/16` |
 | Public subnet | `10.20.0.0/24` (Nginx) |
-| Private subnet | `10.20.1.0/24` (app servers, databases), Private Google Access on |
+| Private subnet | `10.20.1.0/24` (app servers, databases, witness), Private Google Access on |
 | Outbound for private VMs | Cloud Router and Cloud NAT, private subnet only |
 
 ## Compute
@@ -40,10 +40,13 @@ All VMs run Ubuntu 24.04 LTS as shielded VMs (secure boot, vTPM, integrity monit
 | `demo3-app-2` | e2-medium | private | `app` | internal `10.20.1.5` (static), zone b | none |
 | `demo3-db-master` | e2-medium | private | `db` | internal `10.20.1.4` (static) | 20 GiB `pd-balanced`, mounted at `/data` |
 | `demo3-db-slave` | e2-medium | private | `db` | internal `10.20.1.3` (static) | 20 GiB `pd-balanced`, mounted at `/data` |
+| `demo3-db-witness` | e2-small | private | `etcd` | internal address reserved at first apply (see output `private_ips`), zone b | none |
 
 **Application group.** The app servers are defined by the `app_instances` map (name, zone, internal IP). Adding an entry adds a server; the Terraform output `app_upstream` lists the matching Nginx `upstream` lines. Nginx distributes requests over the group, and the servers sit in different zones.
 
 **Addresses.** Static internal addresses are reserved as separate resources and stay the same while those resources exist. The app addresses are pinned in `app_instances`. The database addresses were assigned by GCP at first apply. The Nginx internal address is not reserved and may change if the VM is recreated.
+
+**Database cluster and witness.** The master and the replica are meant to run as a self-recovering PostgreSQL cluster managed by Patroni, which keeps its leader election in etcd. Etcd needs an odd number of members to keep a quorum, so `demo3-db-witness` is the third member next to the two database VMs. It runs etcd only, has no data disk and carries no PostgreSQL. It is placed in a different zone (`witness_zone`) from the database VMs, so that the loss of one zone leaves two of the three members. Terraform creates only the VM, the network rules and the service account; installing and configuring etcd and Patroni on the three machines is separate. Etcd and Patroni use fixed member addresses, so the reserved internal addresses are used in their configuration.
 
 **Data disks.** The database data disks are separate resources and survive VM replacement. A startup script mounts them at `/data` through `/dev/disk/by-id/google-data`, formats a disk only when it is blank, and bind-mounts `/data/postgresql` to `/var/lib/postgresql`.
 
@@ -61,6 +64,7 @@ Ingress is denied by default. Egress is open.
 | `allow-app-from-web` | tag `web` | tag `app` | TCP 8080 (`app_port`) |
 | `allow-db-from-app` | tag `app` | tag `db` | TCP 5432 |
 | `allow-db-replication` | tag `db` | tag `db` | TCP 5432 |
+| `allow-etcd-patroni` | tags `db`, `etcd` | tags `db`, `etcd` | TCP 2379 (etcd client), 2380 (etcd peer), 8008 (Patroni REST API) |
 | `allow-iap-ssh` | `35.235.240.0/20` (IAP) | all VMs | TCP 22 |
 | `allow-ssh-from-management` | `management_cidr` (`10.10.0.0/16`, AWS over the VPN) | all VMs | TCP 22 |
 | `allow-icmp-from-management` | `management_cidr` | all VMs | ICMP |
@@ -76,6 +80,7 @@ Each VM role has its own service account, so the default Compute Engine account 
 | `demo3-nginx-sa` | Nginx | log writer, metric writer |
 | `demo3-app-sa` | both app servers | log writer, metric writer, `storage.objectAdmin` on the bucket |
 | `demo3-db-sa` | both DB VMs | log writer, metric writer, `storage.objectUser` on the bucket, restricted by condition to the `backups/` prefix |
+| `demo3-etcd-sa` | etcd witness | log writer, metric writer only, no bucket access |
 
 Bucket permissions are granted on the bucket, not project-wide. Because of the `backups/` condition, the DB account cannot list the bucket.
 
@@ -85,6 +90,7 @@ Bucket permissions are granted on the bucket, not project-wide. Because of the `
 |---|---|---|
 | `project_id` | none | GCP project ID |
 | `region`, `zone` | `europe-west3`, `europe-west3-a` | location; `zone` is used by Nginx and the databases |
+| `witness_zone` | `europe-west3-b` | zone of the etcd witness; keep it different from the database zone |
 | `name_prefix` | `demo3` | prefix for all resources |
 | `public_subnet_cidr`, `private_subnet_cidr` | `10.20.0.0/24`, `10.20.1.0/24` | subnets |
 | `app_port` | `8080` | application port opened from Nginx |
