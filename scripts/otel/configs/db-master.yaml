@@ -1,0 +1,64 @@
+
+receivers:
+  hostmetrics:
+    collection_interval: 30s
+    root_path: /
+    scrapers:
+      cpu:
+      load:
+      memory:
+      disk:
+      filesystem:
+      network:
+      paging:
+      processes:
+
+  filelog/postgresql:
+    include:
+      - /var/log/postgresql/*.log
+    start_at: end
+    include_file_path: true
+
+processors:
+  memory_limiter:
+    check_interval: 5s
+    limit_mib: 256
+    spike_limit_mib: 64
+
+  resource:
+    attributes:
+      - key: service.name
+        value: postgresql
+        action: upsert
+      - key: host.name
+        value: __VM_NAME__
+        action: upsert
+      - key: database.role
+        value: master
+        action: upsert
+      - key: deployment.environment
+        value: demo3
+        action: upsert
+
+  batch:
+    timeout: 10s
+
+exporters:
+  debug:
+    verbosity: basic
+
+service:
+  telemetry:
+    logs:
+      level: info
+
+  pipelines:
+    metrics:
+      receivers: [hostmetrics]
+      processors: [memory_limiter, resource, batch]
+      exporters: [debug]
+
+    logs:
+      receivers: [filelog/postgresql]
+      processors: [memory_limiter, resource, batch]
+      exporters: [debug]
