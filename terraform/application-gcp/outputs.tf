@@ -38,6 +38,11 @@ output "iap_ssh_commands" {
   }
 }
 
+output "dns_records" {
+  description = "A records pointing to Nginx, by host name"
+  value       = { for r in google_dns_record_set.web : trimsuffix(r.name, ".") => r.rrdatas[0] }
+}
+
 output "bucket_name" {
   description = "Name of the application bucket"
   value       = module.storage.bucket_name

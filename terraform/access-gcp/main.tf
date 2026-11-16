@@ -194,3 +194,28 @@ resource "google_service_account_iam_member" "terraform_federation" {
   role               = "roles/iam.workloadIdentityUser"
   member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.aws.name}/attribute.aws_role/${var.runner_aws_role}"
 }
+
+# Public DNS zone for the domain. It lives here and not in application-gcp, so its name
+# servers stay the same when the application is destroyed and rebuilt.
+
+resource "google_project_service" "dns" {
+  project            = var.project_id
+  service            = "dns.googleapis.com"
+  disable_on_destroy = false
+}
+
+resource "google_dns_managed_zone" "public" {
+  name        = "${var.name_prefix}-public"
+  dns_name    = "${trimsuffix(var.domain_name, ".")}."
+  description = "Public zone for ${var.domain_name}"
+
+  depends_on = [google_project_service.dns]
+}
+
+# Lets the pipeline manage records in this zone only, not other zones or project DNS settings
+resource "google_dns_managed_zone_iam_member" "terraform_records" {
+  project      = var.project_id
+  managed_zone = google_dns_managed_zone.public.name
+  role         = "roles/dns.admin"
+  member       = "serviceAccount:${google_service_account.terraform.email}"
+}

@@ -112,8 +112,8 @@ Each root is separate, with its own state. Apply in this order:
 | # | Root                | Creates                                                                                | State                                                         |
 | - | ------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
 | 1 | `management-aws`  | AWS network, security groups, IAM, GitLab, SigNoz, runner                              | S3 `demo3-tfstate-mgmt-bucket`, `demo3/terraform.tfstate` |
-| 2 | `access-gcp`      | VM service accounts, team access, VM power rights, deploy and Terraform service accounts, runner federation | GCS, `demo3/access`                                         |
-| 3 | `application-gcp` | GCP network, firewall, bucket and its IAM, the six VMs                                 | GCS `demo3-tfstate-gcp`, `demo3/application`              |
+| 2 | `access-gcp`      | VM service accounts, public DNS zone, team access, VM power rights, deploy and Terraform service accounts, runner federation | GCS, `demo3/access`                                         |
+| 3 | `application-gcp` | GCP network, firewall, bucket and its IAM, the six VMs, DNS A records                  | GCS `demo3-tfstate-gcp`, `demo3/application`              |
 | 4 | `vpn`             | HA VPN, tunnels, BGP, route propagation                                                | S3, `demo3/vpn.tfstate`                                     |
 
 Each root has an `OVERVIEW.md` with the details of that part (`vpn`, `access-gcp`, `application-gcp`, `management-aws`).

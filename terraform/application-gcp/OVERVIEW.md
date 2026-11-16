@@ -6,7 +6,7 @@ State: GCS bucket `demo3-tfstate-gcp`, prefix `demo3/application`. Provider `has
 
 ## Role in the platform
 
-This root is applied after `access-gcp`, which creates the VM service accounts, and before `vpn`, which reads its outputs. It is the part of the infrastructure that the GitLab runner can manage through the `demo3-terraform-sa` service account (see `access-gcp`).
+This root is applied after `access-gcp`, which creates the VM service accounts and the public DNS zone, and before `vpn`, which reads its outputs. It is the part of the infrastructure that the GitLab runner can manage through the `demo3-terraform-sa` service account (see `access-gcp`).
 
 ## Structure
 
@@ -69,6 +69,12 @@ Ingress is denied by default. Egress is open.
 | `allow-icmp-from-management` | `management_cidr` | all VMs | ICMP |
 
 The two `management` rules exist only when `management_cidr` is set. No rule opens the application or the databases to the internet. SSH is possible through IAP and from the AWS network over the VPN.
+
+## DNS
+
+Two A records in the Cloud DNS zone `demo3-public` (created by `access-gcp`), both pointing to the static public IP of Nginx: the domain itself and `www.` the domain. TTL 300 seconds. They follow the Nginx address, so a rebuilt Nginx IP updates them in the same apply. The `dns_records` output lists them.
+
+HTTPS itself is set up on Nginx (for example a Let's Encrypt certificate with certbot). The `allow-web-from-internet` rule already opens ports 80 and 443; port 80 is needed for the HTTP-01 challenge.
 
 ## IAM
 

@@ -77,3 +77,9 @@ variable "vm_zone_secondary" {
   description = "Secondary zone the demo3-* VMs run in. Used to grant start/stop permission for the selected zone."
   default     = "europe-west3-b"
 }
+
+variable "domain_name" {
+  type        = string
+  description = "Domain the public DNS zone is created for, e.g. example.com. Lowercase domain name without https:// or a path"
+  default     = "cinema-service-team1.pp.ua"
+}

@@ -1,6 +1,6 @@
 # access-gcp
 
-Terraform root that controls who and what can access the GCP application project: the VM service accounts and their project roles, the team's access to the VMs, the identity the GitLab runner uses to deploy, and the identity it uses to run Terraform. It manages identities and access only and creates no infrastructure.
+Terraform root that controls who and what can access the GCP application project: the VM service accounts and their project roles, the team's access to the VMs, the identity the GitLab runner uses to deploy, and the identity it uses to run Terraform. It manages identities and access, plus the public DNS zone, and creates no other infrastructure.
 
 State: GCS bucket `demo3-tfstate-gcp`, prefix `demo3/access`.
 
@@ -13,6 +13,12 @@ This root is applied before `application-gcp`, which looks up the VM service acc
 One service account per VM role, so no VM uses the default Compute Engine account: `demo3-nginx-sa`, `demo3-app-sa`, `demo3-db-sa`, `demo3-etcd-sa`. `application-gcp` attaches them to the VMs and grants the bucket permissions.
 
 The accounts hold no project roles. Logs and metrics go to SigNoz over OpenTelemetry (through the VPN), which needs no GCP permission. Basic VM metrics (CPU, disk, network) still appear in the console, because Google collects them from the host.
+
+## Public DNS zone
+
+Cloud DNS zone `demo3-public` for `domain_name`. It is kept here rather than in `application-gcp` so that its name servers do not change when the application is destroyed and rebuilt. After the first apply, set the name servers from the `dns_name_servers` output at the domain registrar (once). `application-gcp` adds the A records for the domain and `www`.
+
+The Terraform service account gets `roles/dns.admin` on this zone only, so the pipeline can manage its records but no other zone. The root also enables `dns.googleapis.com`.
 
 ## Team access
 
@@ -65,6 +71,7 @@ The target is the VM's private IP. The account has no sudo unless `deploy_can_su
 | `roles/compute.admin` | project | network, firewall, VMs, disks, addresses, Cloud NAT |
 | `roles/storage.admin` | project | create the application bucket and its IAM bindings, read and write the Terraform state bucket |
 | `roles/iam.serviceAccountUser` | the VM service accounts only | read those accounts and attach them to VMs |
+| `roles/dns.admin` | the `demo3-public` zone only | manage the A records of the domain |
 
 The account cannot create service accounts or change project IAM, and it cannot attach any other service account in the project to a VM.
 
@@ -84,12 +91,13 @@ The `runner_credential_config_command` output contains the command that creates 
 | `deploy_can_sudo` | `false` | grant the deploy account `osAdminLogin` |
 | `aws_account_id` | none | AWS account of the runner; set in `terraform.tfvars`, which is not committed |
 | `runner_aws_role` | `demo3-runner` | the only AWS role trusted for the Terraform service account |
+| `domain_name` | none | domain of the public DNS zone, e.g. `example.com`; set in `terraform.tfvars` |
 | `name_prefix` | `demo3` | prefix of the service account IDs, must match `application-gcp` |
 | `region`, `zone` | `europe-west3`, `europe-west3-a` | used only for the commands in the outputs |
 
 ## Outputs
 
-`vm_sa_emails`, `team_members`, `granted_project_roles`, `connect_command`, `power_commands`, `deploy_sa_email`, `deploy_key_commands`, `terraform_sa_email`, `runner_credential_config_command`.
+`vm_sa_emails`, `team_members`, `granted_project_roles`, `connect_command`, `power_commands`, `deploy_sa_email`, `deploy_key_commands`, `terraform_sa_email`, `runner_credential_config_command`, `dns_name_servers`, `dns_zone_name`.
 
 ## Notes
 

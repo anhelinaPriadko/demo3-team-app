@@ -118,3 +118,22 @@ module "db_witness" {
   service_account_email = local.vm_sa_email["etcd"]
   reserve_internal_ip   = true
 }
+
+# DNS records in the public zone created by access-gcp: the domain and www point to Nginx
+
+data "google_dns_managed_zone" "public" {
+  name = "${var.name_prefix}-public"
+}
+
+resource "google_dns_record_set" "web" {
+  for_each = {
+    apex = ""
+    www  = "www."
+  }
+
+  managed_zone = data.google_dns_managed_zone.public.name
+  name         = "${each.value}${data.google_dns_managed_zone.public.dns_name}"
+  type         = "A"
+  ttl          = 300
+  rrdatas      = [module.nginx.public_ip]
+}
