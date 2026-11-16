@@ -47,7 +47,7 @@ variable "can_power_vms" {
 variable "deploy_can_sudo" {
   type        = bool
   description = "true gives the deploy service account roles/compute.osAdminLogin (sudo on the VMs), false gives roles/compute.osLogin"
-  default     = false
+  default     = true
 }
 
 variable "aws_account_id" {
