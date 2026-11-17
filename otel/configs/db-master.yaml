@@ -1,0 +1,93 @@
+receivers:
+
+  hostmetrics:
+    collection_interval: 30s
+    scrapers:
+      cpu: {}
+      disk: {}
+      load: {}
+      filesystem: {}
+      memory: {}
+      network: {}
+      paging: {}
+      processes: {}
+  filelog/system:
+    include:
+      - /var/log/syslog
+      - /var/log/auth.log
+      - /var/log/kern.log
+    start_at: end
+    include_file_path: true
+
+  filelog/postgresql:
+    include:
+      - /var/log/postgresql/*.log
+    start_at: end
+    include_file_path: true
+  prometheus/postgresql:
+    config:
+      scrape_configs:
+        - job_name: postgresql
+          scrape_interval: 30s
+          static_configs:
+            - targets: ["127.0.0.1:9187"]
+  prometheus/patroni:
+    config:
+      scrape_configs:
+        - job_name: patroni
+          scrape_interval: 30s
+          metrics_path: /metrics
+          static_configs:
+            - targets: ["127.0.0.1:8008"]
+  prometheus/etcd:
+    config:
+      scrape_configs:
+        - job_name: etcd
+          scrape_interval: 30s
+          metrics_path: /metrics
+          static_configs:
+            - targets: ["127.0.0.1:2381"]
+
+processors:
+  memory_limiter:
+    check_interval: 5s
+    limit_percentage: 75
+    spike_limit_percentage: 15
+  resourcedetection/system:
+    detectors: [system]
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: demo3
+        action: upsert
+      - key: db.role
+        value: master
+        action: upsert
+      - key: host.name
+        value: "${env:OTEL_HOST_NAME}"
+        action: upsert
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+
+exporters:
+  otlp:
+    endpoint: "${env:OTEL_EXPORTER_OTLP_ENDPOINT}"
+    tls:
+      insecure: true
+    sending_queue:
+      enabled: true
+      queue_size: 5000
+    retry_on_failure:
+      enabled: true
+
+service:
+  pipelines:
+    metrics:
+      receivers: [hostmetrics, prometheus/postgresql, prometheus/patroni, prometheus/etcd]
+      processors: [memory_limiter, resourcedetection/system, resource, batch]
+      exporters: [otlp]
+    logs:
+      receivers: [filelog/system, filelog/postgresql]
+      processors: [memory_limiter, resourcedetection/system, resource, batch]
+      exporters: [otlp]
