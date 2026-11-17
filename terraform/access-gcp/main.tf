@@ -1,6 +1,20 @@
+# Identities for the application VMs, plus access for the teammates, the deploy account
+# and the Terraform account. Applied by hand before application-gcp
+
+# VM service accounts: one per VM role.
+
+locals {
+  vm_roles = toset(["nginx", "app", "db", "etcd"])
+}
+
+resource "google_service_account" "vm" {
+  for_each = local.vm_roles
+
+  account_id   = "${var.name_prefix}-${each.key}-sa"
+  display_name = "${var.name_prefix} ${each.key} instances"
+}
+
 # Access for the teammates: connect to the VMs through IAP with OS Login.
-# Applied by hand with your own credentials, not by the application pipeline.
-# The VM service accounts come from application-gcp, so apply that root first.
 
 locals {
   members = toset([for email in var.team_emails : "user:${email}"])
@@ -19,7 +33,7 @@ locals {
   }
 
   sa_bindings = {
-    for pair in setproduct(local.members, var.vm_service_accounts) :
+    for pair in setproduct(local.members, local.vm_roles) :
     "${pair[0]}/${pair[1]}" => { member = pair[0], sa = pair[1] }
   }
 }
@@ -34,18 +48,16 @@ resource "google_project_iam_member" "team" {
 }
 
 # OS Login to a VM that runs as a service account also needs serviceAccountUser
-# on that account. Bound on the three VM accounts only, never project-wide.
+# on that account. Bound on the VM accounts only, never project-wide.
 resource "google_service_account_iam_member" "team_use" {
   for_each = local.sa_bindings
 
-  service_account_id = "projects/${var.project_id}/serviceAccounts/${var.name_prefix}-${each.value.sa}-sa@${var.project_id}.iam.gserviceaccount.com"
+  service_account_id = google_service_account.vm[each.value.sa].name
   role               = "roles/iam.serviceAccountUser"
   member             = each.value.member
 }
 
-# Power on and off. Only start and stop are granted here: looking up the instance and
-# waiting for the operation to finish come from roles/compute.viewer above.
-# Limited by condition to the demo3-* instances, so other VMs in the project stay untouched.
+# Power on and off.
 
 resource "google_project_iam_custom_role" "vm_power" {
   count = var.can_power_vms ? 1 : 0
@@ -59,23 +71,35 @@ resource "google_project_iam_custom_role" "vm_power" {
   ]
 }
 
-resource "google_project_iam_member" "team_power" {
-  for_each = var.can_power_vms ? local.members : toset([])
+resource "google_project_iam_member" "team_power_primary_zone" {
+  for_each = local.members
 
   project = var.project_id
   role    = google_project_iam_custom_role.vm_power[0].id
-  member  = each.value
+  member  = each.key
 
   condition {
     title       = "${var.name_prefix}-instances-only"
     description = "Only instances named ${var.name_prefix}-*"
-    expression  = join(" || ", [for z in var.vm_zones : "resource.name.startsWith(\"projects/${var.project_id}/zones/${z}/instances/${var.name_prefix}-\")"])
+    expression  = "resource.name.startsWith(\"projects/${var.project_id}/zones/${var.vm_zone_primary}/instances/${var.name_prefix}-\")"
   }
 }
 
-# Deploy identity for the GitLab runner on AWS. A service account, not a Google user:
-# the runner holds only an SSH private key. Its public key is added to this account's
-# OS Login profile by hand (see outputs), so no service account key is ever created.
+resource "google_project_iam_member" "team_power_secondary_zone" {
+  for_each = local.members
+
+  project = var.project_id
+  role    = google_project_iam_custom_role.vm_power[0].id
+  member  = each.key
+
+  condition {
+    title       = "${var.name_prefix}-instances-only"
+    description = "Only instances named ${var.name_prefix}-*"
+    expression  = "resource.name.startsWith(\"projects/${var.project_id}/zones/${var.vm_zone_secondary}/instances/${var.name_prefix}-\")"
+  }
+}
+
+# Deploy identity for the GitLab runner on AWS.
 
 resource "google_service_account" "deploy" {
   account_id   = "${var.name_prefix}-deploy-sa"
@@ -90,9 +114,9 @@ resource "google_project_iam_member" "deploy_login" {
 
 # Same as for the teammates: needed to log in to VMs that run as a service account
 resource "google_service_account_iam_member" "deploy_use" {
-  for_each = toset(var.vm_service_accounts)
+  for_each = local.vm_roles
 
-  service_account_id = "projects/${var.project_id}/serviceAccounts/${var.name_prefix}-${each.value}-sa@${var.project_id}.iam.gserviceaccount.com"
+  service_account_id = google_service_account.vm[each.key].name
   role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:${google_service_account.deploy.email}"
 }
@@ -114,17 +138,12 @@ resource "google_service_account" "terraform" {
 }
 
 locals {
-  # What application-gcp creates: network, firewall, VMs, disks, addresses, service accounts, bucket.
+  # What application-gcp creates: network, firewall, VMs, disks, addresses, bucket and its IAM.
   # compute.admin and storage.admin also cover reading and writing the state bucket.
   terraform_roles = [
     "roles/compute.admin",
-    "roles/iam.serviceAccountAdmin",
-    "roles/iam.serviceAccountUser", # attach the VM service accounts to the VMs
     "roles/storage.admin",
   ]
-
-  # application-gcp grants these roles to the VM service accounts and nothing else
-  grantable_roles = ["roles/logging.logWriter", "roles/monitoring.metricWriter"]
 }
 
 resource "google_project_iam_member" "terraform" {
@@ -135,17 +154,14 @@ resource "google_project_iam_member" "terraform" {
   member  = "serviceAccount:${google_service_account.terraform.email}"
 }
 
-# Project IAM admin lets an account grant itself anything, so it is limited by condition
-# to handing out only the roles above. Reading the policy is not restricted.
-resource "google_project_iam_member" "terraform_iam_admin" {
-  project = var.project_id
-  role    = "roles/resourcemanager.projectIamAdmin"
-  member  = "serviceAccount:${google_service_account.terraform.email}"
+# Attach the VM service accounts to VMs (and read them). Bound on these accounts only,
+# so the pipeline cannot run a VM as any other account in the project.
+resource "google_service_account_iam_member" "terraform_use" {
+  for_each = local.vm_roles
 
-  condition {
-    title      = "grant-vm-logging-roles-only"
-    expression = "api.getAttribute('iam.googleapis.com/modifiedGrantsByRole', []).hasOnly([${join(",", [for r in local.grantable_roles : "'${r}'"])}])"
-  }
+  service_account_id = google_service_account.vm[each.key].name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.terraform.email}"
 }
 
 resource "google_iam_workload_identity_pool" "aws" {
@@ -177,4 +193,29 @@ resource "google_service_account_iam_member" "terraform_federation" {
   service_account_id = google_service_account.terraform.name
   role               = "roles/iam.workloadIdentityUser"
   member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.aws.name}/attribute.aws_role/${var.runner_aws_role}"
+}
+
+# Public DNS zone for the domain. It lives here and not in application-gcp, so its name
+# servers stay the same when the application is destroyed and rebuilt.
+
+resource "google_project_service" "dns" {
+  project            = var.project_id
+  service            = "dns.googleapis.com"
+  disable_on_destroy = false
+}
+
+resource "google_dns_managed_zone" "public" {
+  name        = "${var.name_prefix}-public"
+  dns_name    = "${trimsuffix(var.domain_name, ".")}."
+  description = "Public zone for ${var.domain_name}"
+
+  depends_on = [google_project_service.dns]
+}
+
+# Lets the pipeline manage records in this zone only, not other zones or project DNS settings
+resource "google_dns_managed_zone_iam_member" "terraform_records" {
+  project      = var.project_id
+  managed_zone = google_dns_managed_zone.public.name
+  role         = "roles/dns.admin"
+  member       = "serviceAccount:${google_service_account.terraform.email}"
 }

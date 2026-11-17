@@ -1,4 +1,4 @@
-# Rules match by network tag, which the compute module sets: web (Nginx), app, db.
+# Rules match by network tag, which the compute module sets: web (Nginx), app, db, etcd (witness).
 # Ingress is denied by default and egress is allowed by default.
 
 resource "google_compute_firewall" "web_from_internet" {
@@ -55,6 +55,21 @@ resource "google_compute_firewall" "db_replication" {
   allow {
     protocol = "tcp"
     ports    = ["5432"]
+  }
+}
+
+# 2379 etcd client, 2380 etcd peer, 8008 Patroni REST API (health checks)
+resource "google_compute_firewall" "etcd_patroni" {
+  name      = "${var.name_prefix}-allow-etcd-patroni"
+  network   = var.network
+  direction = "INGRESS"
+
+  source_tags = ["db", "etcd"]
+  target_tags = ["db", "etcd"]
+
+  allow {
+    protocol = "tcp"
+    ports    = ["2379", "2380", "8008"]
   }
 }
 

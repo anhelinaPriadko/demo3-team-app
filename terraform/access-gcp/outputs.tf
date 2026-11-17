@@ -21,6 +21,11 @@ output "power_commands" {
   } : {}
 }
 
+output "vm_sa_emails" {
+  description = "VM service accounts by role, used by application-gcp"
+  value       = { for k, sa in google_service_account.vm : k => sa.email }
+}
+
 output "deploy_sa_email" {
   description = "Service account the GitLab runner logs in as"
   value       = google_service_account.deploy.email
@@ -42,4 +47,14 @@ output "terraform_sa_email" {
 output "runner_credential_config_command" {
   description = "Run on the runner (as the user that runs the jobs): writes a credential file with no secrets in it. Point GOOGLE_APPLICATION_CREDENTIALS at it"
   value       = "gcloud iam workload-identity-pools create-cred-config ${google_iam_workload_identity_pool_provider.runner.name} --service-account=${google_service_account.terraform.email} --aws --enable-imdsv2 --output-file=gcp-credentials.json"
+}
+
+output "dns_name_servers" {
+  description = "Name servers of the public zone, without the trailing dot. Set these at your domain registrar"
+  value       = [for ns in google_dns_managed_zone.public.name_servers : trimsuffix(ns, ".")]
+}
+
+output "dns_zone_name" {
+  description = "Name of the Cloud DNS zone, used by application-gcp to add records"
+  value       = google_dns_managed_zone.public.name
 }

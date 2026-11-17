@@ -15,6 +15,12 @@ variable "zone" {
   default     = "europe-west3-a"
 }
 
+variable "witness_zone" {
+  type        = string
+  description = "GCP zone of the etcd witness"
+  default     = "europe-west3-b"
+}
+
 variable "name_prefix" {
   type        = string
   description = "Prefix for resource names"

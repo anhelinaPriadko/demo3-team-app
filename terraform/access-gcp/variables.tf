@@ -17,7 +17,7 @@ variable "zone" {
 
 variable "name_prefix" {
   type        = string
-  description = "Prefix used for the VM service accounts, must match application-gcp"
+  description = "Prefix for the service account IDs, must match application-gcp (it looks the VM accounts up by name)"
   default     = "demo3"
 }
 
@@ -30,12 +30,6 @@ variable "team_emails" {
     condition     = alltrue([for e in var.team_emails : can(regex("^[^@\\s]+@[^@\\s]+$", e))])
     error_message = "Every entry must be an email address, for example anna@gmail.com."
   }
-}
-
-variable "vm_service_accounts" {
-  type        = list(string)
-  description = "Roles of the VM service accounts created by application-gcp (<name_prefix>-<role>-sa). They must already exist when this root is applied"
-  default     = ["nginx", "app", "db"]
 }
 
 variable "can_sudo" {
@@ -53,7 +47,7 @@ variable "can_power_vms" {
 variable "deploy_can_sudo" {
   type        = bool
   description = "true gives the deploy service account roles/compute.osAdminLogin (sudo on the VMs), false gives roles/compute.osLogin"
-  default     = false
+  default     = true
 }
 
 variable "aws_account_id" {
@@ -72,8 +66,20 @@ variable "runner_aws_role" {
   default     = "demo3-runner"
 }
 
-variable "vm_zones" {
-  type        = list(string)
-  description = "Zones the demo3-* VMs run in. The start/stop permission is granted for these zones only, so add a zone here when a VM is placed in a new one"
-  default     = ["europe-west3-a", "europe-west3-b"]
+variable "vm_zone_primary" {
+  type        = string
+  description = "Primary zone the demo3-* VMs run in. Used to grant start/stop permission for the selected zone."
+  default     = "europe-west3-a"
+}
+
+variable "vm_zone_secondary" {
+  type        = string
+  description = "Secondary zone the demo3-* VMs run in. Used to grant start/stop permission for the selected zone."
+  default     = "europe-west3-b"
+}
+
+variable "domain_name" {
+  type        = string
+  description = "Domain the public DNS zone is created for, e.g. example.com. Lowercase domain name without https:// or a path"
+  default     = "cinema-service-team1.pp.ua"
 }

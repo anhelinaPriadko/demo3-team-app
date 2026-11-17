@@ -1,9 +1,10 @@
 locals {
   instances = merge(
     {
-      nginx     = module.nginx
-      db_master = module.db_master
-      db_slave  = module.db_slave
+      nginx      = module.nginx
+      db_master  = module.db_master
+      db_slave   = module.db_slave
+      db_witness = module.db_witness
     },
     module.app,
   )
@@ -35,6 +36,11 @@ output "iap_ssh_commands" {
     for name, m in local.instances :
     name => "gcloud compute ssh ${m.name} --zone ${m.zone} --project ${var.project_id} --tunnel-through-iap"
   }
+}
+
+output "dns_records" {
+  description = "A records pointing to Nginx, by host name"
+  value       = { for r in google_dns_record_set.web : trimsuffix(r.name, ".") => r.rrdatas[0] }
 }
 
 output "bucket_name" {
