@@ -50,3 +50,6 @@ mvnw.cmd
 database/config/db.env
 *.secret
 *.key
+### Terraform ###
+*.terraform*
+terraform.tfvars

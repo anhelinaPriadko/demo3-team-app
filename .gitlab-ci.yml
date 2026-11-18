@@ -10,7 +10,7 @@ default:
     - shell
 
 variables:
-  TF_DIR: "application-gcp"
+  TF_DIR: "terraform/application-gcp"
 
 before_script:
   - cd $TF_DIR
@@ -24,6 +24,7 @@ terraform_validate:
 terraform_plan:
   stage: plan
   script:
+    # - terraform apply -target=google_project_service.resourcemanager -auto-approve
     - terraform plan -out=tfplan
   artifacts:
     paths:

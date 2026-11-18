@@ -1,0 +1,33 @@
+#!/bin/bash
+set -euxo pipefail
+
+MOUNT_POINT="${mount_point}"
+LABEL="data"
+# GCP exposes a disk attached with device_name "data" under a stable name
+DEV="/dev/disk/by-id/google-data"
+
+# Terraform attaches the disk after the instance boots, so wait for it (up to 5 min)
+for i in $(seq 1 60); do
+  [ -b "$DEV" ] && break
+  sleep 5
+done
+[ -b "$DEV" ] || { echo "data disk not found"; exit 1; }
+
+# Format only a blank disk. A re-attached disk keeps its data.
+if ! blkid "$DEV" >/dev/null 2>&1; then
+  mkfs.ext4 -L "$LABEL" "$DEV"
+fi
+
+mkdir -p "$MOUNT_POINT"
+grep -q "LABEL=$LABEL" /etc/fstab || echo "LABEL=$LABEL $MOUNT_POINT ext4 defaults,nofail 0 2" >> /etc/fstab
+mount -a
+
+# Bind-mount app directories into the disk so the app writes there transparently
+# (this script runs on every boot, so each fstab line is added only once)
+%{ for name, target in bind_mounts ~}
+mkdir -p "$MOUNT_POINT/${name}" "${target}"
+grep -qs " ${target} none bind" /etc/fstab || echo "$MOUNT_POINT/${name} ${target} none bind,nofail,x-systemd.requires-mounts-for=$MOUNT_POINT 0 0" >> /etc/fstab
+%{ endfor ~}
+mount -a
+
+# ...install PostgreSQL below this line, after the mounts exist

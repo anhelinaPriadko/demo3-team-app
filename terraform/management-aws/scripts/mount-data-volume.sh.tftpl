@@ -1,0 +1,42 @@
+#!/bin/bash
+set -euxo pipefail
+
+MOUNT_POINT="${mount_point}"
+LABEL="data"
+
+find_data_disk() {
+  for d in $(lsblk -dpno NAME,TYPE | awk '$2=="disk"{print $1}'); do
+    # the data disk is the one with nothing mounted on it or its partitions
+    if [ -z "$(lsblk -no MOUNTPOINT "$d" | tr -d '[:space:]')" ]; then
+      echo "$d"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Terraform attaches the volume after the instance boots, so wait for it (up to 5 min)
+DEV=""
+for i in $(seq 1 60); do
+  if DEV=$(find_data_disk); then break; fi
+  sleep 5
+done
+[ -n "$DEV" ] || { echo "data volume not found"; exit 1; }
+
+# Format only a blank volume. A re-attached volume keeps its data.
+if ! blkid "$DEV" >/dev/null 2>&1; then
+  mkfs.ext4 -L "$LABEL" "$DEV"
+fi
+
+mkdir -p "$MOUNT_POINT"
+grep -q "LABEL=$LABEL" /etc/fstab || echo "LABEL=$LABEL $MOUNT_POINT ext4 defaults,nofail 0 2" >> /etc/fstab
+mount -a
+
+# Bind-mount app directories into the volume so the app writes there transparently
+%{ for name, target in bind_mounts ~}
+mkdir -p "$MOUNT_POINT/${name}" "${target}"
+echo "$MOUNT_POINT/${name} ${target} none bind,nofail,x-systemd.requires-mounts-for=$MOUNT_POINT 0 0" >> /etc/fstab
+%{ endfor ~}
+mount -a
+
+# ...install GitLab / Docker / SigNoz below this line, after the mounts exist
