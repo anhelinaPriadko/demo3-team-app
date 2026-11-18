@@ -1,111 +1,110 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
-#!/bin/bash
-
-set -euo pipefail
-
-POSTGRES_VERSION="16"
-
-echo "=== Installing PostgreSQL ${POSTGRES_VERSION} ==="
+CURRENT_IP="10.20.1.4"
+NODE_NAME="pg_node_1"
+ETCD_NAME="etcd1"
+CLUSTER_NAME="demo3-pg-cluster"
+ETCD_ENDPOINTS="http://10.20.1.4:2379,http://10.20.1.3:2379,http://10.20.1.6:2379"
 
 if [[ $EUID -ne 0 ]]; then
     echo "ERROR: Run this script as root."
     exit 1
 fi
 
+echo "=== 1. Installing etcd on Master node ==="
 apt-get update
+apt-get install -y etcd-server etcd-client
 
-apt-get install -y \
-    postgresql-16 \
-    postgresql-client-16 \
-    postgresql-contrib-16
+cat <<EOF > /etc/default/etcd
+ETCD_NAME="${ETCD_NAME}"
+ETCD_DATA_DIR="/var/lib/etcd/default"
+ETCD_LISTEN_PEER_URLS="http://${CURRENT_IP}:2380"
+ETCD_LISTEN_CLIENT_URLS="http://${CURRENT_IP}:2379,http://127.0.0.1:2379"
+ETCD_INITIAL_ADVERTISE_PEER_URLS="http://${CURRENT_IP}:2380"
+ETCD_ADVERTISE_CLIENT_URLS="http://${CURRENT_IP}:2379"
+ETCD_INITIAL_CLUSTER_TOKEN="pg-ha-etcd"
+ETCD_INITIAL_CLUSTER="etcd1=http://10.20.1.4:2380,etcd2=http://10.20.1.3:2380,etcd3=http://10.20.1.6:2380"
+ETCD_INITIAL_CLUSTER_STATE="new"
+EOF
 
-echo "=== Checking PostgreSQL installation ==="
+systemctl enable --now etcd
+systemctl restart etcd
 
-systemctl enable postgresql
-systemctl start postgresql
+echo "=== 2. Installing PostgreSQL 16, Patroni and dependencies ==="
+apt-get install -y postgresql-16 postgresql-client-16 patroni python3-psycopg2 python3-etcd
 
-pg_lsclusters
+systemctl stop postgresql
+systemctl disable postgresql
 
-echo "=== PostgreSQL installation completed ==="
+rm -rf /var/lib/postgresql/16/main
+install -d -o postgres -g postgres -m 700 /var/lib/postgresql/16/main
 
-# Configuration
-SLAVE_IP="10.20.1.3/32"
+echo "=== 3. Creating Patroni configuration ==="
+mkdir -p /etc/patroni
 
-REPLICATION_USER="replicator"
-REPLICATION_SLOT="slave1_slot"
+cat <<EOF > /etc/patroni/config.yml
+scope: ${CLUSTER_NAME}
+namespace: /service/
+name: ${NODE_NAME}
 
-PG_CONF="/etc/postgresql/${POSTGRES_VERSION}/main/postgresql.conf"
-PG_HBA="/etc/postgresql/${POSTGRES_VERSION}/main/pg_hba.conf"
+restapi:
+  listen: 0.0.0.0:8008
+  connect_address: ${CURRENT_IP}:8008
 
-# Check permissions and secrets
-if [[ $EUID -ne 0 ]]; then
-    echo "ERROR: Run as root."
-    exit 1
-fi
+etcd3:
+  hosts:
+    - 10.20.1.4:2379
+    - 10.20.1.3:2379
+    - 10.20.1.6:2379
 
-if [[ -z "${REPLICATION_PASSWORD:-}" ]]; then
-    echo "ERROR: REPLICATION_PASSWORD is not set."
-    exit 1
-fi
+bootstrap:
+  dcs:
+    ttl: 30
+    loop_wait: 10
+    retry_timeout: 10
+    maximum_lag_on_failover: 1048576
+    postgresql:
+      use_pg_rewind: true
+      use_slots: true
+      parameters:
+        wal_level: replica
+        hot_standby: "on"
+        wal_log_hints: "on"
+        max_wal_senders: 10
+        max_replication_slots: 10
 
-echo "=== Configuring PostgreSQL Master ==="
+  initdb:
+    - encoding: UTF8
+    - data-checksums
 
-# Enable replication settings
-sudo -u postgres psql -v ON_ERROR_STOP=1 <<'SQL'
-ALTER SYSTEM SET listen_addresses = '*';
-ALTER SYSTEM SET wal_level = 'replica';
-ALTER SYSTEM SET max_wal_senders = 10;
-ALTER SYSTEM SET max_replication_slots = 10;
-SQL
+  pg_hba:
+    - host replication replicator 10.20.1.0/24 scram-sha-256
+    - host all all 10.20.1.0/24 scram-sha-256
+    - host all all 127.0.0.1/32 scram-sha-256
 
-echo "=== Configuring pg_hba.conf ==="
+postgresql:
+  listen: 0.0.0.0:5432
+  connect_address: ${CURRENT_IP}:5432
+  data_dir: /var/lib/postgresql/16/main
+  bin_dir: /usr/lib/postgresql/16/bin
+  config_dir: /etc/postgresql/16/main
+  pgpass: /var/lib/postgresql/.pgpass
+  authentication:
+    replication:
+      username: replicator
+      password: "StrongReplicationPassword123!"
+    superuser:
+      username: postgres
+      password: "StrongSuperuserPassword123!"
+  parameters:
+    unix_socket_directories: '/var/run/postgresql'
+EOF
 
-HBA_RULE="host replication ${REPLICATION_USER} ${SLAVE_IP} scram-sha-256"
+chown -R postgres:postgres /etc/patroni
+chmod 640 /etc/patroni/config.yml
 
-if ! grep -Fxq "$HBA_RULE" "$PG_HBA"; then
-    echo "$HBA_RULE" >> "$PG_HBA"
-fi
+echo "=== 4. Starting Patroni on Master ==="
+systemctl enable --now patroni
 
-echo "=== Creating replication user ==="
-
-sudo -u postgres psql \
-    -v ON_ERROR_STOP=1 \
-    -v replication_password="$REPLICATION_PASSWORD" <<'SQL'
-
-SELECT format(
-    'CREATE ROLE replicator WITH LOGIN REPLICATION PASSWORD %L',
-    :'replication_password'
-)
-WHERE NOT EXISTS (
-    SELECT FROM pg_roles WHERE rolname = 'replicator'
-)\gexec
-
-ALTER ROLE replicator
-WITH LOGIN REPLICATION PASSWORD :'replication_password';
-
-SQL
-
-echo "=== Creating replication slot ==="
-
-sudo -u postgres psql -v ON_ERROR_STOP=1 \
-    -c "SELECT pg_create_physical_replication_slot('${REPLICATION_SLOT}')
-        WHERE NOT EXISTS (
-            SELECT FROM pg_replication_slots
-            WHERE slot_name = '${REPLICATION_SLOT}'
-        );"
-
-echo "=== Restarting PostgreSQL ==="
-
-systemctl restart postgresql
-
-echo "=== Master verification ==="
-
-pg_lsclusters
-
-sudo -u postgres psql -c \
-    "SELECT rolname, rolreplication
-     FROM pg_roles
-     WHERE rolname = '${REPLICATION_USER}';"
-
-echo "=== Master configuration completed ==="
-
+echo "=== Master node setup completed successfully! ==="
