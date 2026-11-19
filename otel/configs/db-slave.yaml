@@ -1,16 +1,35 @@
+# Same config for db-master and db-slave. The current role (leader/replica) is NOT a static
+# label: it changes on failover. Use the Patroni metric patroni_primary (1 = leader) instead.
 receivers:
 
   hostmetrics:
     collection_interval: 30s
     scrapers:
-      cpu: {}
+      cpu:
+        metrics:
+          system.cpu.utilization:
+            enabled: true
       disk: {}
       load: {}
-      filesystem: {}
-      memory: {}
+      filesystem:
+        metrics:
+          system.filesystem.utilization:
+            enabled: true
+        exclude_fs_types:
+          fs_types: [autofs, binfmt_misc, bpf, cgroup2, configfs, debugfs, devpts, devtmpfs, fusectl, hugetlbfs, mqueue, nsfs, overlay, proc, pstore, securityfs, squashfs, sysfs, tmpfs, tracefs]
+          match_type: strict
+        # /var/lib/postgresql is a bind mount of /data: count the data disk once, as /data
+        exclude_mount_points:
+          mount_points: ["^/snap/", "^/boot/efi$", "^/var/lib/postgresql$"]
+          match_type: regexp
+      memory:
+        metrics:
+          system.memory.utilization:
+            enabled: true
       network: {}
       paging: {}
       processes: {}
+
   filelog/system:
     include:
       - /var/log/syslog
@@ -19,11 +38,91 @@ receivers:
     start_at: end
     include_file_path: true
 
+  # Written by PostgreSQL when Patroni sets logging_collector=on, log_directory=/var/log/postgresql
+  # Line format (log_line_prefix '%m [%p] '): 2026-11-20 10:00:00.123 UTC [1234] ERROR:  message
   filelog/postgresql:
     include:
       - /var/log/postgresql/*.log
     start_at: end
     include_file_path: true
+    operators:
+      - type: regex_parser
+        regex: '^.*?\b(?P<level>DEBUG\d?|INFO|NOTICE|LOG|WARNING|ERROR|FATAL|PANIC):'
+        on_error: send_quiet
+        severity:
+          parse_from: attributes.level
+          mapping:
+            fatal: [FATAL, PANIC]
+            info: [LOG, NOTICE]
+            debug: [DEBUG1, DEBUG2, DEBUG3, DEBUG4, DEBUG5]
+      - type: add
+        field: resource["service.name"]
+        value: postgresql
+
+  # Patroni logs to stderr -> journald. Until logging_collector is on, PostgreSQL lines land here too.
+  journald/patroni:
+    directory: /var/log/journal
+    units: [patroni]
+    start_at: end
+    operators:
+      - type: move
+        from: body.MESSAGE
+        to: body
+        on_error: send_quiet
+      - type: regex_parser
+        regex: '^.*?\b(?P<level>DEBUG\d?|INFO|NOTICE|LOG|WARNING|ERROR|FATAL|PANIC|CRITICAL):'
+        on_error: send_quiet
+        severity:
+          parse_from: attributes.level
+          mapping:
+            fatal: [FATAL, PANIC, CRITICAL]
+            info: [LOG, NOTICE]
+            debug: [DEBUG1, DEBUG2, DEBUG3, DEBUG4, DEBUG5]
+      - type: add
+        field: resource["service.name"]
+        value: patroni
+
+  # etcd 3.4 (Ubuntu 24.04) writes text "... I | etcdserver: ...", etcd 3.5+ writes JSON
+  journald/etcd:
+    directory: /var/log/journal
+    units: [etcd]
+    start_at: end
+    operators:
+      - type: move
+        from: body.MESSAGE
+        to: body
+        on_error: send_quiet
+      - type: router
+        id: etcd_route
+        routes:
+          - expr: 'body startsWith "{"'
+            output: etcd_json
+        default: etcd_text
+      - type: json_parser
+        id: etcd_json
+        parse_to: attributes
+        on_error: send_quiet
+        severity:
+          parse_from: attributes.level
+        output: etcd_service
+      - type: regex_parser
+        id: etcd_text
+        regex: '^\S+ \S+ (?P<level>[DINWEC]) \| '
+        on_error: send_quiet
+        severity:
+          parse_from: attributes.level
+          mapping:
+            debug: D
+            info: [I, N]
+            warn: W
+            error: E
+            fatal: C
+        output: etcd_service
+      - type: add
+        id: etcd_service
+        field: resource["service.name"]
+        value: etcd
+
   prometheus/postgresql:
     config:
       scrape_configs:
@@ -39,6 +138,7 @@ receivers:
           metrics_path: /metrics
           static_configs:
             - targets: ["127.0.0.1:8008"]
+  # etcd serves /metrics on its client listener http://127.0.0.1:2379 (no separate metrics port needed)
   prometheus/etcd:
     config:
       scrape_configs:
@@ -46,7 +146,7 @@ receivers:
           scrape_interval: 30s
           metrics_path: /metrics
           static_configs:
-            - targets: ["127.0.0.1:2381"]
+            - targets: ["127.0.0.1:2379"]
 
 processors:
   memory_limiter:
@@ -59,9 +159,6 @@ processors:
     attributes:
       - key: deployment.environment
         value: demo3
-        action: upsert
-      - key: db.role
-        value: replica
         action: upsert
       - key: host.name
         value: "${env:OTEL_HOST_NAME}"
@@ -88,6 +185,6 @@ service:
       processors: [memory_limiter, resourcedetection/system, resource, batch]
       exporters: [otlp]
     logs:
-      receivers: [filelog/system, filelog/postgresql]
+      receivers: [filelog/system, filelog/postgresql, journald/patroni, journald/etcd]
       processors: [memory_limiter, resourcedetection/system, resource, batch]
       exporters: [otlp]
