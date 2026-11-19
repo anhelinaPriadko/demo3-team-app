@@ -45,7 +45,17 @@ echo "$BACKUP_FILE"
 echo "Backup size:"
 du -h "$BACKUP_FILE"
 
-echo "PostgreSQL backup completed successfully"
-
 # Uploading a backup to Cloud Storage
-gcloud storage cp "$BACKUP_FILE" gs://demo3-app-demo3-team1/backups/
+echo "Uploading backup to Cloud Storage..."
+if gcloud storage cp "$BACKUP_FILE" "$BUCKET_PATH"; then
+    echo "Upload completed successfully"
+else
+    echo "Error: Failed to upload backup to Cloud Storage" >&2
+    exit 1
+fi
+
+# Retention policy: remove local backups older than 7 days
+echo "Cleaning up local backups older than 7 days..."
+find "$BACKUP_DIR" -name "backup_*.sql.gz" -mtime +7 -delete
+
+echo "PostgreSQL backup completed successfully"
