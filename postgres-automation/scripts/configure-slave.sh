@@ -6,12 +6,19 @@ NODE_NAME="pg_node_2"
 ETCD_NAME="etcd2"
 CLUSTER_NAME="demo3-pg-cluster"
 ETCD_ENDPOINTS="http://10.20.1.4:2379,http://10.20.1.3:2379,http://10.20.1.6:2379"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKUP_SRC="${SCRIPT_DIR}/postgresql_backup.sh"
+BACKUP_DST="/usr/local/bin/postgresql_backup.sh"
+CRON_JOB="0 3 * * * ${BACKUP_DST} >> /var/log/pg_backup.log 2>&1"
 
 if [[ $EUID -ne 0 ]]; then
     echo "ERROR: Run this script as root."
     exit 1
 fi
-
+if [[ ! -f "$BACKUP_SRC" ]]; then
+    echo "ERROR: Backup script not found at $BACKUP_SRC" >&2
+    exit 1
+fi
 echo "=== 1. Installing etcd on Slave node ==="
 apt-get update
 apt-get install -y etcd-server etcd-client
@@ -106,5 +113,12 @@ chmod 640 /etc/patroni/config.yml
 
 echo "=== 4. Starting Patroni on Slave ==="
 systemctl enable --now patroni
+
+echo "=== 5. Installing backup script and configuring Cron ==="
+install -m 755 "$BACKUP_SRC" "$BACKUP_DST"
+
+(crontab -l 2>/dev/null || true) | grep -Fxq "$CRON_JOB" || {
+    (crontab -l 2>/dev/null || true; echo "$CRON_JOB") | crontab -
+}
 
 echo "=== Slave node setup completed successfully! ==="
