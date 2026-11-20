@@ -85,10 +85,15 @@ bootstrap:
     - encoding: UTF8
     - data-checksums
 
-  pg_hba:
+    pg_hba:
+   - local all postgres peer
+    - local all otel_monitor peer map=otel
     - host replication replicator 10.20.1.0/24 scram-sha-256
     - host all all 10.20.1.0/24 scram-sha-256
     - host all all 127.0.0.1/32 scram-sha-256
+ pg_ident:
+    - otel postgres_exporter otel_monitor
+
 
 postgresql:
   listen: 0.0.0.0:5432
