@@ -3,14 +3,30 @@ receivers:
   hostmetrics:
     collection_interval: 30s
     scrapers:
-      cpu: {}
+      cpu:
+        metrics:
+          system.cpu.utilization:
+            enabled: true
       disk: {}
       load: {}
-      filesystem: {}
-      memory: {}
+      filesystem:
+        metrics:
+          system.filesystem.utilization:
+            enabled: true
+        exclude_fs_types:
+          fs_types: [autofs, binfmt_misc, bpf, cgroup2, configfs, debugfs, devpts, devtmpfs, fusectl, hugetlbfs, mqueue, nsfs, overlay, proc, pstore, securityfs, squashfs, sysfs, tmpfs, tracefs]
+          match_type: strict
+        exclude_mount_points:
+          mount_points: ["^/snap/", "^/boot/efi$"]
+          match_type: regexp
+      memory:
+        metrics:
+          system.memory.utilization:
+            enabled: true
       network: {}
       paging: {}
       processes: {}
+
   filelog/system:
     include:
       - /var/log/syslog
@@ -25,6 +41,39 @@ receivers:
       - /var/log/nginx/error.log
     start_at: end
     include_file_path: true
+    operators:
+      - type: router
+        id: nginx_route
+        routes:
+          - expr: 'attributes["log.file.path"] endsWith "access.log"'
+            output: nginx_access
+        default: nginx_error
+      # combined format: 1.2.3.4 - - [20/Nov/2026:10:00:00 +0000] "GET / HTTP/1.1" 200 512 "-" "UA"
+      - type: regex_parser
+        id: nginx_access
+        regex: '^(?P<client_ip>\S+) \S+ \S+ \[[^\]]+\] "(?P<http_method>\S+) (?P<http_path>\S+)[^"]*" (?P<http_status>\d{3}) (?P<body_bytes>\d+)'
+        on_error: send_quiet
+        severity:
+          parse_from: attributes.http_status
+          mapping:
+            error: 5xx
+            warn: 4xx
+            info: [2xx, 3xx]
+        output: nginx_end
+      # 2026/11/20 10:00:00 [error] 1234#1234: *5 connect() failed ...
+      - type: regex_parser
+        id: nginx_error
+        regex: '^\S+ \S+ \[(?P<level>\w+)\]'
+        on_error: send_quiet
+        severity:
+          parse_from: attributes.level
+          mapping:
+            fatal: [crit, alert, emerg]
+            info: [info, notice]
+        output: nginx_end
+      - type: noop
+        id: nginx_end
+
   prometheus/nginx:
     config:
       scrape_configs:

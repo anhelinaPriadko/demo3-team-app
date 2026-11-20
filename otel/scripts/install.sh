@@ -54,5 +54,6 @@ if [[ "$ROLE" == "db-master" || "$ROLE" == "db-slave" ]] && ! command -v postgre
 fi
 
 id otelcol-contrib >/dev/null 2>&1 || { echo "Collector package did not create otelcol-contrib user" >&2; exit 1; }
-usermod -aG adm otelcol-contrib
+# adm: /var/log/syslog, auth.log, kern.log; systemd-journal: journald receiver (Patroni, etcd)
+usermod -aG adm,systemd-journal otelcol-contrib
 echo "Installed dependencies for role: $ROLE"

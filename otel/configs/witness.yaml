@@ -3,14 +3,30 @@ receivers:
   hostmetrics:
     collection_interval: 30s
     scrapers:
-      cpu: {}
+      cpu:
+        metrics:
+          system.cpu.utilization:
+            enabled: true
       disk: {}
       load: {}
-      filesystem: {}
-      memory: {}
+      filesystem:
+        metrics:
+          system.filesystem.utilization:
+            enabled: true
+        exclude_fs_types:
+          fs_types: [autofs, binfmt_misc, bpf, cgroup2, configfs, debugfs, devpts, devtmpfs, fusectl, hugetlbfs, mqueue, nsfs, overlay, proc, pstore, securityfs, squashfs, sysfs, tmpfs, tracefs]
+          match_type: strict
+        exclude_mount_points:
+          mount_points: ["^/snap/", "^/boot/efi$"]
+          match_type: regexp
+      memory:
+        metrics:
+          system.memory.utilization:
+            enabled: true
       network: {}
       paging: {}
       processes: {}
+
   filelog/system:
     include:
       - /var/log/syslog
@@ -19,6 +35,48 @@ receivers:
     start_at: end
     include_file_path: true
 
+  # etcd 3.4 (Ubuntu 24.04) writes text "... I | etcdserver: ...", etcd 3.5+ writes JSON
+  journald/etcd:
+    directory: /var/log/journal
+    units: [etcd]
+    start_at: end
+    operators:
+      - type: move
+        from: body.MESSAGE
+        to: body
+        on_error: send_quiet
+      - type: router
+        id: etcd_route
+        routes:
+          - expr: 'body startsWith "{"'
+            output: etcd_json
+        default: etcd_text
+      - type: json_parser
+        id: etcd_json
+        parse_to: attributes
+        on_error: send_quiet
+        severity:
+          parse_from: attributes.level
+        output: etcd_service
+      - type: regex_parser
+        id: etcd_text
+        regex: '^\S+ \S+ (?P<level>[DINWEC]) \| '
+        on_error: send_quiet
+        severity:
+          parse_from: attributes.level
+          mapping:
+            debug: D
+            info: [I, N]
+            warn: W
+            error: E
+            fatal: C
+        output: etcd_service
+      - type: add
+        id: etcd_service
+        field: resource["service.name"]
+        value: etcd
+
+  # etcd serves /metrics on its client listener http://127.0.0.1:2379
   prometheus/etcd:
     config:
       scrape_configs:
@@ -26,7 +84,7 @@ receivers:
           scrape_interval: 30s
           metrics_path: /metrics
           static_configs:
-            - targets: ["127.0.0.1:2381"]
+            - targets: ["127.0.0.1:2379"]
 
 processors:
   memory_limiter:
@@ -68,6 +126,6 @@ service:
       processors: [memory_limiter, resourcedetection/system, resource, batch]
       exporters: [otlp]
     logs:
-      receivers: [filelog/system]
+      receivers: [filelog/system, journald/etcd]
       processors: [memory_limiter, resourcedetection/system, resource, batch]
       exporters: [otlp]

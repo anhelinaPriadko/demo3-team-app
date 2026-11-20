@@ -3,14 +3,30 @@ receivers:
   hostmetrics:
     collection_interval: 30s
     scrapers:
-      cpu: {}
+      cpu:
+        metrics:
+          system.cpu.utilization:
+            enabled: true
       disk: {}
       load: {}
-      filesystem: {}
-      memory: {}
+      filesystem:
+        metrics:
+          system.filesystem.utilization:
+            enabled: true
+        exclude_fs_types:
+          fs_types: [autofs, binfmt_misc, bpf, cgroup2, configfs, debugfs, devpts, devtmpfs, fusectl, hugetlbfs, mqueue, nsfs, overlay, proc, pstore, securityfs, squashfs, sysfs, tmpfs, tracefs]
+          match_type: strict
+        exclude_mount_points:
+          mount_points: ["^/snap/", "^/boot/efi$", "^/var/lib/docker/"]
+          match_type: regexp
+      memory:
+        metrics:
+          system.memory.utilization:
+            enabled: true
       network: {}
       paging: {}
       processes: {}
+
   filelog/system:
     include:
       - /var/log/syslog
@@ -31,8 +47,9 @@ processors:
       - key: deployment.environment
         value: demo3
         action: upsert
+      # Host telemetry must not mix with the APM service "demo3-java-app" sent by the Java Agent
       - key: service.name
-        value: demo3-java-app
+        value: demo3-app-host
         action: upsert
       - key: host.name
         value: "${env:OTEL_HOST_NAME}"
