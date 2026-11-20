@@ -73,15 +73,25 @@ bootstrap:
         wal_log_hints: "on"
         max_wal_senders: 10
         max_replication_slots: 10
+        logging_collector: "on"
+log_directory: /var/log/postgresql
+log_filename: postgresql-%a.log
+log_truncate_on_rotation: "on"
+log_rotation_age: 1d
+log_file_mode: "0640"
 
   initdb:
     - encoding: UTF8
     - data-checksums
 
   pg_hba:
+   - local all postgres peer
+    - local all otel_monitor peer map=otel
     - host replication replicator 10.20.1.0/24 scram-sha-256
     - host all all 10.20.1.0/24 scram-sha-256
     - host all all 127.0.0.1/32 scram-sha-256
+ pg_ident:
+    - otel postgres_exporter otel_monitor
 
 postgresql:
   listen: 0.0.0.0:5432
