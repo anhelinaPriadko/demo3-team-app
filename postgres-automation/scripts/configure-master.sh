@@ -73,6 +73,12 @@ bootstrap:
         wal_log_hints: "on"
         max_wal_senders: 10
         max_replication_slots: 10
+        logging_collector: "on"
+log_directory: /var/log/postgresql
+log_filename: postgresql-%a.log
+log_truncate_on_rotation: "on"
+log_rotation_age: 1d
+log_file_mode: "0640"
 
   initdb:
     - encoding: UTF8
