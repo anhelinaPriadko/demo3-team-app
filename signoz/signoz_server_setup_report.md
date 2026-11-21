@@ -493,7 +493,7 @@ App password.
 
 ``` yaml
 services:
-  signoz:
+  signoz-signoz-0:
     env_file:
       - /opt/signoz/smtp.env
 ```
@@ -506,7 +506,7 @@ services:
 ``` bash
 cd /opt/signoz/pours/deployment
 docker compose -f compose.yaml -f /opt/signoz/smtp-override.yaml config --quiet && echo "config OK"
-docker compose -f compose.yaml -f /opt/signoz/smtp-override.yaml up -d signoz
+docker compose -f compose.yaml -f /opt/signoz/smtp-override.yaml up -d --no-deps signoz-signoz-0
 ```
 
 > **Важливо:** будь-який запуск або перезапуск SigNoz через
@@ -537,7 +537,8 @@ docker logs --since 5m signoz-signoz-0 2>&1 | grep -iE 'smtp|alertmanager' | tai
 В описі кожного алерту є посилання на дашборд і на runbook у
 `docs/runbooks/`.
 
-  #    Алерт                      Тип      Умова                                         Severity
+# Алерт                      Тип      Умова                                         Severity
+
   ---- -------------------------- -------- --------------------------------------------- ----------
   1    Host not reporting         Metric   немає даних від хоста 5 хв                    critical
   2    High CPU                   Metric   CPU > 85 % протягом 10 хв                     warning
