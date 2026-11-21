@@ -1,0 +1,888 @@
+{
+  "spec": {
+    "display": {
+      "name": "Demo3: Patroni & etcd HA",
+      "description": "Patroni leader election, etcd quorum and HA logs for demo3-db-master, demo3-db-slave and demo3-db-witness."
+    },
+    "variables": [],
+    "panels": {
+      "08141d7e-8504-4b7d-99e3-f91af5d66698": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "HA Error Logs",
+            "description": ""
+          },
+          "plugin": {
+            "kind": "signoz/ListPanel",
+            "spec": {
+              "selectFields": [
+                {
+                  "name": "timestamp",
+                  "fieldContext": "log",
+                  "fieldDataType": "",
+                  "signal": "logs"
+                },
+                {
+                  "name": "body",
+                  "fieldContext": "log",
+                  "fieldDataType": "",
+                  "signal": "logs"
+                },
+                {
+                  "name": "severity_text",
+                  "description": "Log level. Learn more [here](https://opentelemetry.io/docs/specs/otel/logs/data-model/#field-severitytext)",
+                  "fieldContext": "log",
+                  "fieldDataType": "string",
+                  "signal": "logs"
+                },
+                {
+                  "name": "host.name",
+                  "signal": "",
+                  "fieldContext": "",
+                  "fieldDataType": ""
+                }
+              ]
+            }
+          },
+          "queries": [
+            {
+              "kind": "raw",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "logs",
+                    "source": "",
+                    "disabled": false,
+                    "filter": {
+                      "expression": "deployment.environment = 'demo3' AND service.name IN ('patroni', 'etcd', 'postgresql') AND severity_number >= 17"
+                    },
+                    "order": [
+                      {
+                        "key": {
+                          "name": "timestamp",
+                          "signal": "",
+                          "fieldContext": "",
+                          "fieldDataType": ""
+                        },
+                        "direction": "desc"
+                      }
+                    ],
+                    "legend": ""
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      },
+      "27a40807-30e3-47a3-9abb-27d7e97ae4f6": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "etcd Members Up (of 3)",
+            "description": "Scrape status of etcd on master, slave and witness. Quorum needs at least 2."
+          },
+          "plugin": {
+            "kind": "signoz/NumberPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time"
+              },
+              "formatting": {
+                "unit": "",
+                "decimalPrecision": "0"
+              },
+              "thresholds": [
+                {
+                  "value": 3,
+                  "operator": "equal",
+                  "unit": "",
+                  "color": "#2BB673",
+                  "format": "text"
+                },
+                {
+                  "value": 2,
+                  "operator": "equal",
+                  "unit": "",
+                  "color": "#F5A623",
+                  "format": "text"
+                },
+                {
+                  "value": 1,
+                  "operator": "equal",
+                  "unit": "",
+                  "color": "#F1575F",
+                  "format": "text"
+                },
+                {
+                  "value": 0,
+                  "operator": "equal",
+                  "unit": "",
+                  "color": "#F1575F",
+                  "format": "text"
+                }
+              ]
+            }
+          },
+          "queries": [
+            {
+              "kind": "scalar",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/CompositeQuery",
+                  "spec": {
+                    "queries": [
+                      {
+                        "type": "builder_query",
+                        "spec": {
+                          "name": "A",
+                          "stepInterval": 0,
+                          "signal": "metrics",
+                          "source": "",
+                          "aggregations": [
+                            {
+                              "metricName": "up",
+                              "temporality": "",
+                              "timeAggregation": "latest",
+                              "spaceAggregation": "sum",
+                              "reduceTo": "last"
+                            }
+                          ],
+                          "disabled": false,
+                          "filter": {
+                            "expression": "deployment.environment = 'demo3' AND service.name = 'etcd'"
+                          },
+                          "groupBy": null,
+                          "order": null,
+                          "selectFields": null,
+                          "secondaryAggregations": null,
+                          "functions": null,
+                          "legend": ""
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      },
+      "51ae122e-adb6-495d-afeb-48be8d010ab6": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Leaders in Cluster",
+            "description": "Must be exactly 1. 0 = no leader (writes fail), 2 = split brain."
+          },
+          "plugin": {
+            "kind": "signoz/NumberPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time"
+              },
+              "formatting": {
+                "unit": "",
+                "decimalPrecision": "0"
+              },
+              "thresholds": [
+                {
+                  "value": 1,
+                  "operator": "equal",
+                  "unit": "",
+                  "color": "#2BB673",
+                  "format": "text"
+                },
+                {
+                  "value": 0,
+                  "operator": "equal",
+                  "unit": "",
+                  "color": "#F1575F",
+                  "format": "text"
+                },
+                {
+                  "value": 2,
+                  "operator": "equal",
+                  "unit": "",
+                  "color": "#F1575F",
+                  "format": "text"
+                }
+              ]
+            }
+          },
+          "queries": [
+            {
+              "kind": "scalar",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/CompositeQuery",
+                  "spec": {
+                    "queries": [
+                      {
+                        "type": "builder_query",
+                        "spec": {
+                          "name": "A",
+                          "stepInterval": 0,
+                          "signal": "metrics",
+                          "source": "",
+                          "aggregations": [
+                            {
+                              "metricName": "patroni_primary",
+                              "temporality": "",
+                              "timeAggregation": "latest",
+                              "spaceAggregation": "sum",
+                              "reduceTo": "last"
+                            }
+                          ],
+                          "disabled": false,
+                          "filter": {
+                            "expression": "deployment.environment = 'demo3'"
+                          },
+                          "groupBy": null,
+                          "order": null,
+                          "selectFields": null,
+                          "secondaryAggregations": null,
+                          "functions": null,
+                          "legend": ""
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      },
+      "70324845-86f3-44fc-8307-728a0d947ef1": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Current Leader by Node",
+            "description": "patroni_primary: 1 = this node is the leader. The line switches on failover."
+          },
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "",
+                "decimalPrecision": "0"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none",
+                "spanGaps": {
+                  "fillOnlyBelow": false,
+                  "fillLessThan": ""
+                }
+              },
+              "axes": {
+                "softMin": null,
+                "softMax": null,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list",
+                "customColors": null
+              },
+              "thresholds": null
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/CompositeQuery",
+                  "spec": {
+                    "queries": [
+                      {
+                        "type": "builder_query",
+                        "spec": {
+                          "name": "A",
+                          "stepInterval": 0,
+                          "signal": "metrics",
+                          "source": "",
+                          "aggregations": [
+                            {
+                              "metricName": "patroni_primary",
+                              "temporality": "",
+                              "timeAggregation": "latest",
+                              "spaceAggregation": "max",
+                              "reduceTo": ""
+                            }
+                          ],
+                          "disabled": false,
+                          "filter": {
+                            "expression": "deployment.environment = 'demo3'"
+                          },
+                          "groupBy": [
+                            {
+                              "name": "host.name",
+                              "signal": "",
+                              "fieldContext": "",
+                              "fieldDataType": ""
+                            }
+                          ],
+                          "order": null,
+                          "selectFields": null,
+                          "secondaryAggregations": null,
+                          "functions": null,
+                          "legend": ""
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      },
+      "80e1272c-01d9-4c05-8f07-49ab5153ee3c": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "PostgreSQL Failover / Recovery Logs",
+            "description": "Promotion, demotion, switchover and recovery events."
+          },
+          "plugin": {
+            "kind": "signoz/ListPanel",
+            "spec": {
+              "selectFields": [
+                {
+                  "name": "timestamp",
+                  "fieldContext": "log",
+                  "fieldDataType": "",
+                  "signal": "logs"
+                },
+                {
+                  "name": "body",
+                  "fieldContext": "log",
+                  "fieldDataType": "",
+                  "signal": "logs"
+                },
+                {
+                  "name": "severity_text",
+                  "description": "Log level. Learn more [here](https://opentelemetry.io/docs/specs/otel/logs/data-model/#field-severitytext)",
+                  "fieldContext": "log",
+                  "fieldDataType": "string",
+                  "signal": "logs"
+                },
+                {
+                  "name": "host.name",
+                  "signal": "",
+                  "fieldContext": "",
+                  "fieldDataType": ""
+                }
+              ]
+            }
+          },
+          "queries": [
+            {
+              "kind": "raw",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "logs",
+                    "source": "",
+                    "disabled": false,
+                    "filter": {
+                      "expression": "deployment.environment = 'demo3' AND service.name IN ('postgresql', 'patroni') AND (body CONTAINS 'promot' OR body CONTAINS 'demot' OR body CONTAINS 'failover' OR body CONTAINS 'switchover' OR body CONTAINS 'acquired session lock' OR body CONTAINS 'recovery')"
+                    },
+                    "order": [
+                      {
+                        "key": {
+                          "name": "timestamp",
+                          "signal": "",
+                          "fieldContext": "",
+                          "fieldDataType": ""
+                        },
+                        "direction": "desc"
+                      }
+                    ],
+                    "legend": ""
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      },
+      "a15dd12b-e34b-4435-928b-7e3613224259": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "etcd Logs",
+            "description": ""
+          },
+          "plugin": {
+            "kind": "signoz/ListPanel",
+            "spec": {
+              "selectFields": [
+                {
+                  "name": "timestamp",
+                  "fieldContext": "log",
+                  "fieldDataType": "",
+                  "signal": "logs"
+                },
+                {
+                  "name": "body",
+                  "fieldContext": "log",
+                  "fieldDataType": "",
+                  "signal": "logs"
+                },
+                {
+                  "name": "severity_text",
+                  "description": "Log level. Learn more [here](https://opentelemetry.io/docs/specs/otel/logs/data-model/#field-severitytext)",
+                  "fieldContext": "log",
+                  "fieldDataType": "string",
+                  "signal": "logs"
+                },
+                {
+                  "name": "host.name",
+                  "signal": "",
+                  "fieldContext": "",
+                  "fieldDataType": ""
+                }
+              ]
+            }
+          },
+          "queries": [
+            {
+              "kind": "raw",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "logs",
+                    "source": "",
+                    "disabled": false,
+                    "filter": {
+                      "expression": "deployment.environment = 'demo3' AND service.name = 'etcd'"
+                    },
+                    "order": [
+                      {
+                        "key": {
+                          "name": "timestamp",
+                          "signal": "",
+                          "fieldContext": "",
+                          "fieldDataType": ""
+                        },
+                        "direction": "desc"
+                      }
+                    ],
+                    "legend": ""
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      },
+      "c7e1d8a3-ae36-434d-aad0-e5b0af4d6e3e": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Patroni Exporter Availability",
+            "description": "Scrape status of the Patroni REST API /metrics on each DB node."
+          },
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "last_30_min",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "",
+                "decimalPrecision": "0"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none",
+                "spanGaps": {
+                  "fillOnlyBelow": false,
+                  "fillLessThan": ""
+                }
+              },
+              "axes": {
+                "softMin": null,
+                "softMax": null,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list",
+                "customColors": null
+              },
+              "thresholds": null
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/CompositeQuery",
+                  "spec": {
+                    "queries": [
+                      {
+                        "type": "builder_query",
+                        "spec": {
+                          "name": "A",
+                          "stepInterval": 0,
+                          "signal": "metrics",
+                          "source": "",
+                          "aggregations": [
+                            {
+                              "metricName": "up",
+                              "temporality": "",
+                              "timeAggregation": "latest",
+                              "spaceAggregation": "max",
+                              "reduceTo": ""
+                            }
+                          ],
+                          "disabled": false,
+                          "filter": {
+                            "expression": "deployment.environment = 'demo3' AND service.name = 'patroni'"
+                          },
+                          "groupBy": [
+                            {
+                              "name": "host.name",
+                              "signal": "",
+                              "fieldContext": "",
+                              "fieldDataType": ""
+                            }
+                          ],
+                          "order": null,
+                          "selectFields": null,
+                          "secondaryAggregations": null,
+                          "functions": null,
+                          "legend": ""
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      },
+      "cc30cb22-bad6-45ec-a3d2-36a568560c79": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Patroni Logs",
+            "description": ""
+          },
+          "plugin": {
+            "kind": "signoz/ListPanel",
+            "spec": {
+              "selectFields": [
+                {
+                  "name": "timestamp",
+                  "fieldContext": "log",
+                  "fieldDataType": "",
+                  "signal": "logs"
+                },
+                {
+                  "name": "body",
+                  "fieldContext": "log",
+                  "fieldDataType": "",
+                  "signal": "logs"
+                },
+                {
+                  "name": "severity_text",
+                  "description": "Log level. Learn more [here](https://opentelemetry.io/docs/specs/otel/logs/data-model/#field-severitytext)",
+                  "fieldContext": "log",
+                  "fieldDataType": "string",
+                  "signal": "logs"
+                },
+                {
+                  "name": "host.name",
+                  "signal": "",
+                  "fieldContext": "",
+                  "fieldDataType": ""
+                }
+              ]
+            }
+          },
+          "queries": [
+            {
+              "kind": "raw",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "logs",
+                    "source": "",
+                    "disabled": false,
+                    "filter": {
+                      "expression": "deployment.environment = 'demo3' AND (host.name = 'demo3-db-master' OR host.name = 'demo3-db-slave') AND service.name = 'patroni'"
+                    },
+                    "order": [
+                      {
+                        "key": {
+                          "name": "timestamp",
+                          "signal": "",
+                          "fieldContext": "",
+                          "fieldDataType": ""
+                        },
+                        "direction": "desc"
+                      }
+                    ],
+                    "legend": ""
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      },
+      "e766c4f5-e19a-4926-825c-014ef5f60a28": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "etcd Has Leader",
+            "description": "1 = every etcd member sees a leader, 0 = at least one member has no leader."
+          },
+          "plugin": {
+            "kind": "signoz/NumberPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "global_time"
+              },
+              "formatting": {
+                "unit": "",
+                "decimalPrecision": "0"
+              },
+              "thresholds": [
+                {
+                  "value": 0,
+                  "operator": "equal",
+                  "unit": "",
+                  "color": "#F1575F",
+                  "format": "text"
+                },
+                {
+                  "value": 1,
+                  "operator": "equal",
+                  "unit": "",
+                  "color": "#2BB673",
+                  "format": "text"
+                }
+              ]
+            }
+          },
+          "queries": [
+            {
+              "kind": "scalar",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/CompositeQuery",
+                  "spec": {
+                    "queries": [
+                      {
+                        "type": "builder_query",
+                        "spec": {
+                          "name": "A",
+                          "stepInterval": 0,
+                          "signal": "metrics",
+                          "source": "",
+                          "aggregations": [
+                            {
+                              "metricName": "etcd_server_has_leader",
+                              "temporality": "",
+                              "timeAggregation": "latest",
+                              "spaceAggregation": "min",
+                              "reduceTo": "last"
+                            }
+                          ],
+                          "disabled": false,
+                          "filter": {
+                            "expression": "deployment.environment = 'demo3'"
+                          },
+                          "groupBy": null,
+                          "order": null,
+                          "selectFields": null,
+                          "secondaryAggregations": null,
+                          "functions": null,
+                          "legend": ""
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      }
+    },
+    "layouts": [
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "HA Overview"
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/51ae122e-adb6-495d-afeb-48be8d010ab6"
+              }
+            },
+            {
+              "x": 6,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/e766c4f5-e19a-4926-825c-014ef5f60a28"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Patroni Cluster"
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/c7e1d8a3-ae36-434d-aad0-e5b0af4d6e3e"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "PostgreSQL Roles"
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/70324845-86f3-44fc-8307-728a0d947ef1"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "etcd Cluster"
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/27a40807-30e3-47a3-9abb-27d7e97ae4f6"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "HA Events & Logs"
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/cc30cb22-bad6-45ec-a3d2-36a568560c79"
+              }
+            },
+            {
+              "x": 6,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/80e1272c-01d9-4c05-8f07-49ab5153ee3c"
+              }
+            },
+            {
+              "x": 0,
+              "y": 6,
+              "width": 6,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/a15dd12b-e34b-4435-928b-7e3613224259"
+              }
+            },
+            {
+              "x": 6,
+              "y": 6,
+              "width": 6,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/08141d7e-8504-4b7d-99e3-f91af5d66698"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "duration": "",
+    "refreshInterval": "",
+    "links": null
+  },
+  "tags": [],
+  "image": "/assets/Icons/eight-ball"
+}

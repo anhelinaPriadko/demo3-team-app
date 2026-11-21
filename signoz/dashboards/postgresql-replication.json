@@ -1,0 +1,1343 @@
+{
+  "spec": {
+    "display": {
+      "name": "Demo3: PostgreSQL & Replication",
+      "description": "PostgreSQL master/replica health, database performance, replication status, Patroni and etcd metrics, and database logs."
+    },
+    "variables": [],
+    "panels": {
+      "0c9bd959-f430-4781-abe9-bc11e0fef371": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "PostgreSQL Error Logs",
+            "description": ""
+          },
+          "plugin": {
+            "kind": "signoz/ListPanel",
+            "spec": {
+              "selectFields": [
+                {
+                  "name": "timestamp",
+                  "signal": "logs",
+                  "fieldContext": "log",
+                  "fieldDataType": ""
+                },
+                {
+                  "name": "body",
+                  "signal": "logs",
+                  "fieldContext": "log",
+                  "fieldDataType": ""
+                },
+                {
+                  "name": "severity_text",
+                  "description": "Log level. Learn more [here](https://opentelemetry.io/docs/specs/otel/logs/data-model/#field-severitytext)",
+                  "signal": "logs",
+                  "fieldContext": "log",
+                  "fieldDataType": "string"
+                },
+                {
+                  "name": "host.name",
+                  "signal": "",
+                  "fieldContext": "",
+                  "fieldDataType": ""
+                }
+              ]
+            }
+          },
+          "queries": [
+            {
+              "kind": "raw",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "logs",
+                    "source": "",
+                    "disabled": false,
+                    "filter": {
+                      "expression": "deployment.environment = 'demo3' AND service.name IN ('postgresql', 'patroni') AND severity_number >= 17"
+                    },
+                    "order": [
+                      {
+                        "key": {
+                          "name": "timestamp",
+                          "signal": "",
+                          "fieldContext": "",
+                          "fieldDataType": ""
+                        },
+                        "direction": "desc"
+                      }
+                    ],
+                    "legend": ""
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      },
+      "10a38a97-745d-46d2-a35b-b9bdf1a3f1cd": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Replication Lag",
+            "description": "Seconds the replica is behind (0 on the leader)."
+          },
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "last_30_min",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "s",
+                "decimalPrecision": "3"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none",
+                "spanGaps": {
+                  "fillOnlyBelow": false,
+                  "fillLessThan": ""
+                }
+              },
+              "axes": {
+                "softMin": null,
+                "softMax": null,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list",
+                "customColors": null
+              },
+              "thresholds": null
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/CompositeQuery",
+                  "spec": {
+                    "queries": [
+                      {
+                        "type": "builder_query",
+                        "spec": {
+                          "name": "A",
+                          "stepInterval": 0,
+                          "signal": "metrics",
+                          "source": "",
+                          "aggregations": [
+                            {
+                              "metricName": "pg_replication_lag_seconds",
+                              "temporality": "",
+                              "timeAggregation": "latest",
+                              "spaceAggregation": "max",
+                              "reduceTo": ""
+                            }
+                          ],
+                          "disabled": false,
+                          "filter": {
+                            "expression": "deployment.environment = 'demo3' AND service.name = 'postgresql'"
+                          },
+                          "groupBy": [
+                            {
+                              "name": "host.name",
+                              "signal": "",
+                              "fieldContext": "",
+                              "fieldDataType": ""
+                            }
+                          ],
+                          "order": null,
+                          "selectFields": null,
+                          "secondaryAggregations": null,
+                          "functions": null,
+                          "legend": ""
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      },
+      "1695c0fb-164f-42e7-9fad-baadc913a7b5": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "PostgreSQL Logs",
+            "description": ""
+          },
+          "plugin": {
+            "kind": "signoz/ListPanel",
+            "spec": {
+              "selectFields": [
+                {
+                  "name": "timestamp",
+                  "signal": "logs",
+                  "fieldContext": "log",
+                  "fieldDataType": ""
+                },
+                {
+                  "name": "body",
+                  "signal": "logs",
+                  "fieldContext": "log",
+                  "fieldDataType": ""
+                },
+                {
+                  "name": "severity_text",
+                  "description": "Log level. Learn more [here](https://opentelemetry.io/docs/specs/otel/logs/data-model/#field-severitytext)",
+                  "signal": "logs",
+                  "fieldContext": "log",
+                  "fieldDataType": "string"
+                },
+                {
+                  "name": "host.name",
+                  "signal": "",
+                  "fieldContext": "",
+                  "fieldDataType": ""
+                }
+              ]
+            }
+          },
+          "queries": [
+            {
+              "kind": "raw",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "logs",
+                    "source": "",
+                    "disabled": false,
+                    "filter": {
+                      "expression": "deployment.environment = 'demo3' AND service.name IN ('postgresql', 'patroni')"
+                    },
+                    "order": [
+                      {
+                        "key": {
+                          "name": "timestamp",
+                          "signal": "",
+                          "fieldContext": "",
+                          "fieldDataType": ""
+                        },
+                        "direction": "desc"
+                      }
+                    ],
+                    "legend": ""
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      },
+      "24dc3dc8-b689-45f1-bdcc-28d9c7124209": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "PostgreSQL Exporter Status",
+            "description": ""
+          },
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "last_30_min",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "short",
+                "decimalPrecision": "0"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none",
+                "spanGaps": {
+                  "fillOnlyBelow": false,
+                  "fillLessThan": ""
+                }
+              },
+              "axes": {
+                "softMin": null,
+                "softMax": null,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list",
+                "customColors": null
+              },
+              "thresholds": null
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/CompositeQuery",
+                  "spec": {
+                    "queries": [
+                      {
+                        "type": "builder_query",
+                        "spec": {
+                          "name": "A",
+                          "stepInterval": 0,
+                          "signal": "metrics",
+                          "source": "",
+                          "aggregations": [
+                            {
+                              "metricName": "up",
+                              "temporality": "",
+                              "timeAggregation": "latest",
+                              "spaceAggregation": "avg",
+                              "reduceTo": ""
+                            }
+                          ],
+                          "disabled": false,
+                          "filter": {
+                            "expression": "deployment.environment = 'demo3' AND service.name = 'postgresql'"
+                          },
+                          "groupBy": [
+                            {
+                              "name": "host.name",
+                              "signal": "",
+                              "fieldContext": "",
+                              "fieldDataType": ""
+                            }
+                          ],
+                          "order": null,
+                          "selectFields": null,
+                          "secondaryAggregations": null,
+                          "functions": null,
+                          "legend": "host.name = {{host.name}}"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      },
+      "25e6da2a-7515-42cc-90f7-1485033ca7c3": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "PostgreSQL Deadlocks",
+            "description": ""
+          },
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "last_30_min",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "",
+                "decimalPrecision": "2"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none",
+                "spanGaps": {
+                  "fillOnlyBelow": false,
+                  "fillLessThan": ""
+                }
+              },
+              "axes": {
+                "softMin": null,
+                "softMax": null,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list",
+                "customColors": null
+              },
+              "thresholds": null
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/CompositeQuery",
+                  "spec": {
+                    "queries": [
+                      {
+                        "type": "builder_query",
+                        "spec": {
+                          "name": "A",
+                          "stepInterval": 0,
+                          "signal": "metrics",
+                          "source": "",
+                          "aggregations": [
+                            {
+                              "metricName": "pg_stat_database_deadlocks",
+                              "temporality": "",
+                              "timeAggregation": "rate",
+                              "spaceAggregation": "sum",
+                              "reduceTo": ""
+                            }
+                          ],
+                          "disabled": false,
+                          "filter": {
+                            "expression": "deployment.environment = 'demo3' AND service.name = 'postgresql'"
+                          },
+                          "groupBy": [
+                            {
+                              "name": "host.name",
+                              "signal": "",
+                              "fieldContext": "",
+                              "fieldDataType": ""
+                            }
+                          ],
+                          "order": null,
+                          "selectFields": null,
+                          "secondaryAggregations": null,
+                          "functions": null,
+                          "legend": ""
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      },
+      "42bcb140-4344-4299-a88b-a3b46ea5b26f": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "PostgreSQL Connections",
+            "description": ""
+          },
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "last_30_min",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "short",
+                "decimalPrecision": "0"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none",
+                "spanGaps": {
+                  "fillOnlyBelow": false,
+                  "fillLessThan": ""
+                }
+              },
+              "axes": {
+                "softMin": null,
+                "softMax": null,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list",
+                "customColors": null
+              },
+              "thresholds": null
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/CompositeQuery",
+                  "spec": {
+                    "queries": [
+                      {
+                        "type": "builder_query",
+                        "spec": {
+                          "name": "A",
+                          "stepInterval": 0,
+                          "signal": "metrics",
+                          "source": "",
+                          "aggregations": [
+                            {
+                              "metricName": "pg_stat_activity_count",
+                              "temporality": "",
+                              "timeAggregation": "avg",
+                              "spaceAggregation": "sum",
+                              "reduceTo": ""
+                            }
+                          ],
+                          "disabled": false,
+                          "filter": {
+                            "expression": "deployment.environment = 'demo3' AND service.name = 'postgresql'"
+                          },
+                          "groupBy": [
+                            {
+                              "name": "host.name",
+                              "signal": "",
+                              "fieldContext": "",
+                              "fieldDataType": ""
+                            },
+                            {
+                              "name": "state",
+                              "signal": "",
+                              "fieldContext": "",
+                              "fieldDataType": ""
+                            }
+                          ],
+                          "order": null,
+                          "selectFields": null,
+                          "secondaryAggregations": null,
+                          "functions": null,
+                          "legend": ""
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      },
+      "886a724d-8524-4e7b-862d-70dfd1a0cce5": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "PostgreSQL Transactions per Second",
+            "description": ""
+          },
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "last_30_min",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "short",
+                "decimalPrecision": "2"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none",
+                "spanGaps": {
+                  "fillOnlyBelow": false,
+                  "fillLessThan": ""
+                }
+              },
+              "axes": {
+                "softMin": null,
+                "softMax": null,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list",
+                "customColors": null
+              },
+              "thresholds": null
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/CompositeQuery",
+                  "spec": {
+                    "queries": [
+                      {
+                        "type": "builder_query",
+                        "spec": {
+                          "name": "A",
+                          "stepInterval": 0,
+                          "signal": "metrics",
+                          "source": "",
+                          "aggregations": [
+                            {
+                              "metricName": "pg_stat_database_xact_commit",
+                              "temporality": "",
+                              "timeAggregation": "rate",
+                              "spaceAggregation": "sum",
+                              "reduceTo": ""
+                            }
+                          ],
+                          "disabled": false,
+                          "filter": {
+                            "expression": "deployment.environment = 'demo3' AND service.name = 'postgresql'"
+                          },
+                          "groupBy": [
+                            {
+                              "name": "host.name",
+                              "signal": "",
+                              "fieldContext": "",
+                              "fieldDataType": ""
+                            }
+                          ],
+                          "order": null,
+                          "selectFields": null,
+                          "secondaryAggregations": null,
+                          "functions": null,
+                          "legend": "{{host.name}} — commits/s"
+                        }
+                      },
+                      {
+                        "type": "builder_query",
+                        "spec": {
+                          "name": "B",
+                          "stepInterval": 0,
+                          "signal": "metrics",
+                          "source": "",
+                          "aggregations": [
+                            {
+                              "metricName": "pg_stat_database_xact_rollback",
+                              "temporality": "",
+                              "timeAggregation": "rate",
+                              "spaceAggregation": "sum",
+                              "reduceTo": ""
+                            }
+                          ],
+                          "disabled": false,
+                          "filter": {
+                            "expression": "deployment.environment = 'demo3' AND service.name = 'postgresql'"
+                          },
+                          "groupBy": [
+                            {
+                              "name": "host.name",
+                              "signal": "",
+                              "fieldContext": "",
+                              "fieldDataType": ""
+                            }
+                          ],
+                          "order": null,
+                          "selectFields": null,
+                          "secondaryAggregations": null,
+                          "functions": null,
+                          "legend": "Rollbacks/s"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      },
+      "a82e0747-ef35-4b4a-a938-d5c9a85c4b66": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "etcd Metrics Availability",
+            "description": ""
+          },
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "last_30_min",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "short",
+                "decimalPrecision": "0"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none",
+                "spanGaps": {
+                  "fillOnlyBelow": false,
+                  "fillLessThan": ""
+                }
+              },
+              "axes": {
+                "softMin": null,
+                "softMax": null,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list",
+                "customColors": null
+              },
+              "thresholds": null
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/CompositeQuery",
+                  "spec": {
+                    "queries": [
+                      {
+                        "type": "builder_query",
+                        "spec": {
+                          "name": "A",
+                          "stepInterval": 0,
+                          "signal": "metrics",
+                          "source": "",
+                          "aggregations": [
+                            {
+                              "metricName": "up",
+                              "temporality": "",
+                              "timeAggregation": "latest",
+                              "spaceAggregation": "avg",
+                              "reduceTo": ""
+                            }
+                          ],
+                          "disabled": false,
+                          "filter": {
+                            "expression": "deployment.environment = 'demo3' AND service.name = 'etcd'"
+                          },
+                          "groupBy": [
+                            {
+                              "name": "host.name",
+                              "signal": "",
+                              "fieldContext": "",
+                              "fieldDataType": ""
+                            }
+                          ],
+                          "order": null,
+                          "selectFields": null,
+                          "secondaryAggregations": null,
+                          "functions": null,
+                          "legend": ""
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      },
+      "ca92a65a-fb3a-483a-ad97-ab07c25c738f": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Patroni Metrics Availability",
+            "description": ""
+          },
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "last_30_min",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "",
+                "decimalPrecision": "0"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none",
+                "spanGaps": {
+                  "fillOnlyBelow": false,
+                  "fillLessThan": ""
+                }
+              },
+              "axes": {
+                "softMin": null,
+                "softMax": null,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list",
+                "customColors": null
+              },
+              "thresholds": null
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/CompositeQuery",
+                  "spec": {
+                    "queries": [
+                      {
+                        "type": "builder_query",
+                        "spec": {
+                          "name": "A",
+                          "stepInterval": 0,
+                          "signal": "metrics",
+                          "source": "",
+                          "aggregations": [
+                            {
+                              "metricName": "up",
+                              "temporality": "",
+                              "timeAggregation": "latest",
+                              "spaceAggregation": "avg",
+                              "reduceTo": ""
+                            }
+                          ],
+                          "disabled": false,
+                          "filter": {
+                            "expression": "deployment.environment = 'demo3' AND service.name = 'patroni'"
+                          },
+                          "groupBy": [
+                            {
+                              "name": "host.name",
+                              "signal": "",
+                              "fieldContext": "",
+                              "fieldDataType": ""
+                            }
+                          ],
+                          "order": null,
+                          "selectFields": null,
+                          "secondaryAggregations": null,
+                          "functions": null,
+                          "legend": ""
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      },
+      "d0ca291e-8586-4997-989d-81e2e03c1bca": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Database Cache Hit Ratio",
+            "description": ""
+          },
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "last_30_min",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "%",
+                "decimalPrecision": "1"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none",
+                "spanGaps": {
+                  "fillOnlyBelow": false,
+                  "fillLessThan": ""
+                }
+              },
+              "axes": {
+                "softMin": null,
+                "softMax": null,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list",
+                "customColors": null
+              },
+              "thresholds": null
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/CompositeQuery",
+                  "spec": {
+                    "queries": [
+                      {
+                        "type": "builder_query",
+                        "spec": {
+                          "name": "A",
+                          "stepInterval": 0,
+                          "signal": "metrics",
+                          "source": "",
+                          "aggregations": [
+                            {
+                              "metricName": "pg_stat_database_blks_hit",
+                              "temporality": "",
+                              "timeAggregation": "rate",
+                              "spaceAggregation": "avg",
+                              "reduceTo": ""
+                            }
+                          ],
+                          "disabled": true,
+                          "filter": {
+                            "expression": "deployment.environment = 'demo3' AND service.name = 'postgresql'"
+                          },
+                          "groupBy": [
+                            {
+                              "name": "host.name",
+                              "signal": "",
+                              "fieldContext": "",
+                              "fieldDataType": ""
+                            },
+                            {
+                              "name": "datname",
+                              "signal": "",
+                              "fieldContext": "",
+                              "fieldDataType": ""
+                            }
+                          ],
+                          "order": null,
+                          "selectFields": null,
+                          "secondaryAggregations": null,
+                          "functions": null,
+                          "legend": "Blocks Hit/s"
+                        }
+                      },
+                      {
+                        "type": "builder_query",
+                        "spec": {
+                          "name": "B",
+                          "stepInterval": 0,
+                          "signal": "metrics",
+                          "source": "",
+                          "aggregations": [
+                            {
+                              "metricName": "pg_stat_database_blks_read",
+                              "temporality": "",
+                              "timeAggregation": "rate",
+                              "spaceAggregation": "avg",
+                              "reduceTo": ""
+                            }
+                          ],
+                          "disabled": true,
+                          "filter": {
+                            "expression": "deployment.environment = 'demo3' AND service.name = 'postgresql'"
+                          },
+                          "groupBy": [
+                            {
+                              "name": "host.name",
+                              "signal": "",
+                              "fieldContext": "",
+                              "fieldDataType": ""
+                            },
+                            {
+                              "name": "datname",
+                              "signal": "",
+                              "fieldContext": "",
+                              "fieldDataType": ""
+                            }
+                          ],
+                          "order": null,
+                          "selectFields": null,
+                          "secondaryAggregations": null,
+                          "functions": null,
+                          "legend": "Blocks Read/s"
+                        }
+                      },
+                      {
+                        "type": "builder_formula",
+                        "spec": {
+                          "name": "F1",
+                          "expression": "A / (A + B) * 100",
+                          "disabled": false,
+                          "order": null,
+                          "functions": null,
+                          "legend": "{{host.name}} / {{datname}}"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      },
+      "e9db617e-e2e2-4b53-8ccf-7ae629ce2703": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Database Size",
+            "description": ""
+          },
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "last_30_min",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "bytes",
+                "decimalPrecision": "2"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none",
+                "spanGaps": {
+                  "fillOnlyBelow": false,
+                  "fillLessThan": ""
+                }
+              },
+              "axes": {
+                "softMin": null,
+                "softMax": null,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list",
+                "customColors": null
+              },
+              "thresholds": null
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/CompositeQuery",
+                  "spec": {
+                    "queries": [
+                      {
+                        "type": "builder_query",
+                        "spec": {
+                          "name": "A",
+                          "stepInterval": 0,
+                          "signal": "metrics",
+                          "source": "",
+                          "aggregations": [
+                            {
+                              "metricName": "pg_database_size_bytes",
+                              "temporality": "",
+                              "timeAggregation": "latest",
+                              "spaceAggregation": "sum",
+                              "reduceTo": ""
+                            }
+                          ],
+                          "disabled": false,
+                          "filter": {
+                            "expression": "deployment.environment = 'demo3' AND service.name = 'postgresql'"
+                          },
+                          "groupBy": [
+                            {
+                              "name": "host.name",
+                              "signal": "",
+                              "fieldContext": "",
+                              "fieldDataType": ""
+                            },
+                            {
+                              "name": "datname",
+                              "signal": "",
+                              "fieldContext": "",
+                              "fieldDataType": ""
+                            }
+                          ],
+                          "order": null,
+                          "selectFields": null,
+                          "secondaryAggregations": null,
+                          "functions": null,
+                          "legend": "host.name = {{host.name}}, datname = {{datname}}"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      },
+      "f022ec70-839f-4736-8706-9021d0a989c8": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Database System Logs",
+            "description": ""
+          },
+          "plugin": {
+            "kind": "signoz/ListPanel",
+            "spec": {
+              "selectFields": [
+                {
+                  "name": "timestamp",
+                  "signal": "logs",
+                  "fieldContext": "log",
+                  "fieldDataType": ""
+                },
+                {
+                  "name": "body",
+                  "signal": "logs",
+                  "fieldContext": "log",
+                  "fieldDataType": ""
+                },
+                {
+                  "name": "severity_text",
+                  "description": "Log level. Learn more [here](https://opentelemetry.io/docs/specs/otel/logs/data-model/#field-severitytext)",
+                  "signal": "logs",
+                  "fieldContext": "log",
+                  "fieldDataType": "string"
+                },
+                {
+                  "name": "host.name",
+                  "signal": "",
+                  "fieldContext": "",
+                  "fieldDataType": ""
+                },
+                {
+                  "name": "log.file.path",
+                  "signal": "",
+                  "fieldContext": "",
+                  "fieldDataType": ""
+                }
+              ]
+            }
+          },
+          "queries": [
+            {
+              "kind": "raw",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "logs",
+                    "source": "",
+                    "disabled": false,
+                    "filter": {
+                      "expression": "deployment.environment = 'demo3' AND host.name IN ('demo3-db-master', 'demo3-db-slave')"
+                    },
+                    "order": [
+                      {
+                        "key": {
+                          "name": "timestamp",
+                          "signal": "",
+                          "fieldContext": "",
+                          "fieldDataType": ""
+                        },
+                        "direction": "desc"
+                      }
+                    ],
+                    "legend": ""
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      }
+    },
+    "layouts": [
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Database Overview"
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/24dc3dc8-b689-45f1-bdcc-28d9c7124209"
+              }
+            },
+            {
+              "x": 6,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/42bcb140-4344-4299-a88b-a3b46ea5b26f"
+              }
+            },
+            {
+              "x": 0,
+              "y": 6,
+              "width": 6,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/e9db617e-e2e2-4b53-8ccf-7ae629ce2703"
+              }
+            },
+            {
+              "x": 6,
+              "y": 6,
+              "width": 6,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/886a724d-8524-4e7b-862d-70dfd1a0cce5"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "PostgreSQL Performance"
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/d0ca291e-8586-4997-989d-81e2e03c1bca"
+              }
+            },
+            {
+              "x": 6,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/25e6da2a-7515-42cc-90f7-1485033ca7c3"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Replication"
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/10a38a97-745d-46d2-a35b-b9bdf1a3f1cd"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Patroni & HA"
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/ca92a65a-fb3a-483a-ad97-ab07c25c738f"
+              }
+            },
+            {
+              "x": 0,
+              "y": 6,
+              "width": 6,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/a82e0747-ef35-4b4a-a938-d5c9a85c4b66"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Database Logs"
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/1695c0fb-164f-42e7-9fad-baadc913a7b5"
+              }
+            },
+            {
+              "x": 6,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/0c9bd959-f430-4781-abe9-bc11e0fef371"
+              }
+            },
+            {
+              "x": 0,
+              "y": 6,
+              "width": 6,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/f022ec70-839f-4736-8706-9021d0a989c8"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "duration": "",
+    "refreshInterval": "",
+    "links": null
+  },
+  "tags": [],
+  "image": "/assets/Icons/eight-ball"
+}

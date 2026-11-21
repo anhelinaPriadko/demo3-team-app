@@ -1,0 +1,1047 @@
+{
+  "spec": {
+    "display": {
+      "name": "Demo3: Nginx & Load Balancer",
+      "description": "Monitoring of Nginx load balancer performance, connection states, HTTP request throughput, exporter health and access/error logs."
+    },
+    "variables": [],
+    "panels": {
+      "0d97f5d5-4552-4fb9-abb0-0825293e0d1f": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Waiting Connections",
+            "description": "Number of idle keep-alive connections waiting for the next request."
+          },
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "last_30_min",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "short",
+                "decimalPrecision": "0"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none",
+                "spanGaps": {
+                  "fillOnlyBelow": false,
+                  "fillLessThan": ""
+                }
+              },
+              "axes": {
+                "softMin": null,
+                "softMax": null,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list",
+                "customColors": null
+              },
+              "thresholds": null
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/CompositeQuery",
+                  "spec": {
+                    "queries": [
+                      {
+                        "type": "builder_query",
+                        "spec": {
+                          "name": "A",
+                          "stepInterval": 0,
+                          "signal": "metrics",
+                          "source": "",
+                          "aggregations": [
+                            {
+                              "metricName": "nginx_connections_waiting",
+                              "temporality": "",
+                              "timeAggregation": "avg",
+                              "spaceAggregation": "avg",
+                              "reduceTo": ""
+                            }
+                          ],
+                          "disabled": false,
+                          "filter": {
+                            "expression": "deployment.environment = 'demo3' AND host.name = 'demo3-nginx'"
+                          },
+                          "groupBy": [
+                            {
+                              "name": "host.name",
+                              "signal": "",
+                              "fieldContext": "",
+                              "fieldDataType": ""
+                            }
+                          ],
+                          "order": null,
+                          "selectFields": null,
+                          "secondaryAggregations": null,
+                          "functions": null,
+                          "legend": ""
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      },
+      "20d043d2-3519-4cdf-85b8-477efd82dcb7": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Nginx Exporter Status",
+            "description": "\tIndicates whether the Nginx exporter can successfully scrape Nginx stub_status."
+          },
+          "plugin": {
+            "kind": "signoz/NumberPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "last_30_min"
+              },
+              "formatting": {
+                "unit": "short",
+                "decimalPrecision": "0"
+              },
+              "thresholds": [
+                {
+                  "value": 0,
+                  "operator": "equal",
+                  "unit": "",
+                  "color": "#F1575F",
+                  "format": "text"
+                },
+                {
+                  "value": 1,
+                  "operator": "equal",
+                  "unit": "",
+                  "color": "#2BB673",
+                  "format": "text"
+                }
+              ]
+            }
+          },
+          "queries": [
+            {
+              "kind": "scalar",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/CompositeQuery",
+                  "spec": {
+                    "queries": [
+                      {
+                        "type": "builder_query",
+                        "spec": {
+                          "name": "A",
+                          "stepInterval": 0,
+                          "signal": "metrics",
+                          "source": "",
+                          "aggregations": [
+                            {
+                              "metricName": "nginx_up",
+                              "temporality": "",
+                              "timeAggregation": "latest",
+                              "spaceAggregation": "avg",
+                              "reduceTo": "avg"
+                            }
+                          ],
+                          "disabled": false,
+                          "filter": {
+                            "expression": "deployment.environment = 'demo3' AND host.name = 'demo3-nginx'"
+                          },
+                          "groupBy": [
+                            {
+                              "name": "host.name",
+                              "signal": "",
+                              "fieldContext": "",
+                              "fieldDataType": ""
+                            }
+                          ],
+                          "order": null,
+                          "selectFields": null,
+                          "secondaryAggregations": null,
+                          "functions": null,
+                          "legend": ""
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      },
+      "28bf3d45-2a9f-4bab-9c27-33324a76704d": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Reading Connections",
+            "description": "Number of connections where Nginx is reading client request headers."
+          },
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "last_30_min",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "short",
+                "decimalPrecision": "0"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none",
+                "spanGaps": {
+                  "fillOnlyBelow": false,
+                  "fillLessThan": ""
+                }
+              },
+              "axes": {
+                "softMin": null,
+                "softMax": null,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list",
+                "customColors": null
+              },
+              "thresholds": null
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/CompositeQuery",
+                  "spec": {
+                    "queries": [
+                      {
+                        "type": "builder_query",
+                        "spec": {
+                          "name": "A",
+                          "stepInterval": 0,
+                          "signal": "metrics",
+                          "source": "",
+                          "aggregations": [
+                            {
+                              "metricName": "nginx_connections_reading",
+                              "temporality": "",
+                              "timeAggregation": "avg",
+                              "spaceAggregation": "avg",
+                              "reduceTo": ""
+                            }
+                          ],
+                          "disabled": false,
+                          "filter": {
+                            "expression": "deployment.environment = 'demo3' AND host.name = 'demo3-nginx'"
+                          },
+                          "groupBy": [
+                            {
+                              "name": "host.name",
+                              "signal": "",
+                              "fieldContext": "",
+                              "fieldDataType": ""
+                            }
+                          ],
+                          "order": null,
+                          "selectFields": null,
+                          "secondaryAggregations": null,
+                          "functions": null,
+                          "legend": ""
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      },
+      "4cca2c75-23d8-496c-b1b7-8e5190138497": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Writing Connections",
+            "description": "Number of connections where Nginx is writing responses to clients."
+          },
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "last_30_min",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "short",
+                "decimalPrecision": "0"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none",
+                "spanGaps": {
+                  "fillOnlyBelow": false,
+                  "fillLessThan": ""
+                }
+              },
+              "axes": {
+                "softMin": null,
+                "softMax": null,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list",
+                "customColors": null
+              },
+              "thresholds": null
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/CompositeQuery",
+                  "spec": {
+                    "queries": [
+                      {
+                        "type": "builder_query",
+                        "spec": {
+                          "name": "A",
+                          "stepInterval": 0,
+                          "signal": "metrics",
+                          "source": "",
+                          "aggregations": [
+                            {
+                              "metricName": "nginx_connections_writing",
+                              "temporality": "",
+                              "timeAggregation": "avg",
+                              "spaceAggregation": "avg",
+                              "reduceTo": ""
+                            }
+                          ],
+                          "disabled": false,
+                          "filter": {
+                            "expression": "deployment.environment = 'demo3' AND host.name = 'demo3-nginx'"
+                          },
+                          "groupBy": [
+                            {
+                              "name": "host.name",
+                              "signal": "",
+                              "fieldContext": "",
+                              "fieldDataType": ""
+                            }
+                          ],
+                          "order": null,
+                          "selectFields": null,
+                          "secondaryAggregations": null,
+                          "functions": null,
+                          "legend": ""
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      },
+      "637daf08-ea7a-464f-b1ee-90e6304b3c01": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Nginx Access Logs",
+            "description": "HTTP access log entries generated by the Nginx load balancer."
+          },
+          "plugin": {
+            "kind": "signoz/ListPanel",
+            "spec": {
+              "selectFields": [
+                {
+                  "name": "timestamp",
+                  "signal": "logs",
+                  "fieldContext": "log",
+                  "fieldDataType": ""
+                },
+                {
+                  "name": "body",
+                  "signal": "logs",
+                  "fieldContext": "log",
+                  "fieldDataType": "string"
+                },
+                {
+                  "name": "severity_text",
+                  "description": "Log level. Learn more [here](https://opentelemetry.io/docs/specs/otel/logs/data-model/#field-severitytext)",
+                  "signal": "logs",
+                  "fieldContext": "log",
+                  "fieldDataType": "string"
+                },
+                {
+                  "name": "host.name",
+                  "signal": "",
+                  "fieldContext": "",
+                  "fieldDataType": ""
+                }
+              ]
+            }
+          },
+          "queries": [
+            {
+              "kind": "raw",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "logs",
+                    "source": "",
+                    "disabled": false,
+                    "filter": {
+                      "expression": "deployment.environment = 'demo3' AND host.name = 'demo3-nginx' AND log.file.path = '/var/log/nginx/access.log'"
+                    },
+                    "order": [
+                      {
+                        "key": {
+                          "name": "timestamp",
+                          "signal": "",
+                          "fieldContext": "",
+                          "fieldDataType": ""
+                        },
+                        "direction": "desc"
+                      }
+                    ],
+                    "legend": ""
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      },
+      "6a2e5137-ec7e-4e37-bd8d-d699e0de7160": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Active Connections",
+            "description": "Current number of active client connections handled by Nginx."
+          },
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "last_30_min",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "short",
+                "decimalPrecision": "0"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none",
+                "spanGaps": {
+                  "fillOnlyBelow": false,
+                  "fillLessThan": ""
+                }
+              },
+              "axes": {
+                "softMin": null,
+                "softMax": null,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list",
+                "customColors": null
+              },
+              "thresholds": null
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/CompositeQuery",
+                  "spec": {
+                    "queries": [
+                      {
+                        "type": "builder_query",
+                        "spec": {
+                          "name": "A",
+                          "stepInterval": 0,
+                          "signal": "metrics",
+                          "source": "",
+                          "aggregations": [
+                            {
+                              "metricName": "nginx_connections_active",
+                              "temporality": "",
+                              "timeAggregation": "avg",
+                              "spaceAggregation": "avg",
+                              "reduceTo": ""
+                            }
+                          ],
+                          "disabled": false,
+                          "filter": {
+                            "expression": "deployment.environment = 'demo3' AND host.name = 'demo3-nginx'"
+                          },
+                          "groupBy": [
+                            {
+                              "name": "host.name",
+                              "signal": "",
+                              "fieldContext": "",
+                              "fieldDataType": ""
+                            }
+                          ],
+                          "order": null,
+                          "selectFields": null,
+                          "secondaryAggregations": null,
+                          "functions": null,
+                          "legend": ""
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      },
+      "6b81bcf8-85d8-4a01-bd4a-88938da8d2e8": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "HTTP Requests per Second",
+            "description": "Rate of total HTTP requests processed by Nginx per second."
+          },
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "last_30_min",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "{req}/s",
+                "decimalPrecision": "2"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none",
+                "spanGaps": {
+                  "fillOnlyBelow": false,
+                  "fillLessThan": ""
+                }
+              },
+              "axes": {
+                "softMin": null,
+                "softMax": null,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list",
+                "customColors": null
+              },
+              "thresholds": null
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/CompositeQuery",
+                  "spec": {
+                    "queries": [
+                      {
+                        "type": "builder_query",
+                        "spec": {
+                          "name": "A",
+                          "stepInterval": 0,
+                          "signal": "metrics",
+                          "source": "",
+                          "aggregations": [
+                            {
+                              "metricName": "nginx_http_requests_total",
+                              "temporality": "",
+                              "timeAggregation": "rate",
+                              "spaceAggregation": "avg",
+                              "reduceTo": ""
+                            }
+                          ],
+                          "disabled": false,
+                          "filter": {
+                            "expression": "deployment.environment = 'demo3' AND host.name = 'demo3-nginx'"
+                          },
+                          "groupBy": [
+                            {
+                              "name": "host.name",
+                              "signal": "",
+                              "fieldContext": "",
+                              "fieldDataType": ""
+                            }
+                          ],
+                          "order": null,
+                          "selectFields": null,
+                          "secondaryAggregations": null,
+                          "functions": null,
+                          "legend": ""
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      },
+      "b4d8871c-edee-492d-af8d-3be955e6cf90": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Accepted vs Handled Connections",
+            "description": "Rate of accepted and handled client connections per second by Nginx."
+          },
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "visualization": {
+                "timePreference": "last_30_min",
+                "fillSpans": false
+              },
+              "formatting": {
+                "unit": "short",
+                "decimalPrecision": "2"
+              },
+              "chartAppearance": {
+                "lineInterpolation": "spline",
+                "showPoints": false,
+                "lineStyle": "solid",
+                "fillMode": "none",
+                "spanGaps": {
+                  "fillOnlyBelow": false,
+                  "fillLessThan": ""
+                }
+              },
+              "axes": {
+                "softMin": null,
+                "softMax": null,
+                "isLogScale": false
+              },
+              "legend": {
+                "position": "bottom",
+                "mode": "list",
+                "customColors": null
+              },
+              "thresholds": null
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/CompositeQuery",
+                  "spec": {
+                    "queries": [
+                      {
+                        "type": "builder_query",
+                        "spec": {
+                          "name": "A",
+                          "stepInterval": 0,
+                          "signal": "metrics",
+                          "source": "",
+                          "aggregations": [
+                            {
+                              "metricName": "nginx_connections_accepted",
+                              "temporality": "",
+                              "timeAggregation": "rate",
+                              "spaceAggregation": "avg",
+                              "reduceTo": ""
+                            }
+                          ],
+                          "disabled": false,
+                          "filter": {
+                            "expression": "deployment.environment = 'demo3' AND host.name = 'demo3-nginx'"
+                          },
+                          "groupBy": [
+                            {
+                              "name": "host.name",
+                              "signal": "",
+                              "fieldContext": "",
+                              "fieldDataType": ""
+                            }
+                          ],
+                          "order": null,
+                          "selectFields": null,
+                          "secondaryAggregations": null,
+                          "functions": null,
+                          "legend": "Accepted connections/s"
+                        }
+                      },
+                      {
+                        "type": "builder_query",
+                        "spec": {
+                          "name": "B",
+                          "stepInterval": 0,
+                          "signal": "metrics",
+                          "source": "",
+                          "aggregations": [
+                            {
+                              "metricName": "nginx_connections_handled",
+                              "temporality": "",
+                              "timeAggregation": "rate",
+                              "spaceAggregation": "avg",
+                              "reduceTo": ""
+                            }
+                          ],
+                          "disabled": false,
+                          "filter": {
+                            "expression": "deployment.environment = 'demo3' AND host.name = 'demo3-nginx'"
+                          },
+                          "groupBy": [
+                            {
+                              "name": "host.name",
+                              "signal": "",
+                              "fieldContext": "",
+                              "fieldDataType": ""
+                            }
+                          ],
+                          "order": null,
+                          "selectFields": null,
+                          "secondaryAggregations": null,
+                          "functions": null,
+                          "legend": "Handled connections/s"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      },
+      "f2acc5c9-53cf-4c67-8e1b-599d690a57bc": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Nginx Error Logs",
+            "description": "Error log entries generated by the Nginx load balancer"
+          },
+          "plugin": {
+            "kind": "signoz/ListPanel",
+            "spec": {
+              "selectFields": [
+                {
+                  "name": "timestamp",
+                  "signal": "logs",
+                  "fieldContext": "log",
+                  "fieldDataType": ""
+                },
+                {
+                  "name": "body",
+                  "signal": "logs",
+                  "fieldContext": "log",
+                  "fieldDataType": ""
+                },
+                {
+                  "name": "severity_text",
+                  "description": "Log level. Learn more [here](https://opentelemetry.io/docs/specs/otel/logs/data-model/#field-severitytext)",
+                  "signal": "logs",
+                  "fieldContext": "log",
+                  "fieldDataType": "string"
+                },
+                {
+                  "name": "host.name",
+                  "signal": "",
+                  "fieldContext": "",
+                  "fieldDataType": ""
+                }
+              ]
+            }
+          },
+          "queries": [
+            {
+              "kind": "raw",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "logs",
+                    "source": "",
+                    "disabled": false,
+                    "filter": {
+                      "expression": "deployment.environment = 'demo3' AND host.name = 'demo3-nginx' AND log.file.path = '/var/log/nginx/error.log'"
+                    },
+                    "order": [
+                      {
+                        "key": {
+                          "name": "timestamp",
+                          "signal": "",
+                          "fieldContext": "",
+                          "fieldDataType": ""
+                        },
+                        "direction": "desc"
+                      }
+                    ],
+                    "legend": ""
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      },
+      "19f5cce7-e649-5fcc-bc86-c8251936fb9c": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Nginx 5xx Responses",
+            "description": "Access log entries with HTTP 5xx status (severity ERROR, set by the Collector parser)."
+          },
+          "plugin": {
+            "kind": "signoz/ListPanel",
+            "spec": {
+              "selectFields": [
+                {
+                  "name": "timestamp",
+                  "signal": "logs",
+                  "fieldContext": "log",
+                  "fieldDataType": ""
+                },
+                {
+                  "name": "body",
+                  "signal": "logs",
+                  "fieldContext": "log",
+                  "fieldDataType": "string"
+                },
+                {
+                  "name": "severity_text",
+                  "description": "Log level. Learn more [here](https://opentelemetry.io/docs/specs/otel/logs/data-model/#field-severitytext)",
+                  "signal": "logs",
+                  "fieldContext": "log",
+                  "fieldDataType": "string"
+                },
+                {
+                  "name": "host.name",
+                  "signal": "",
+                  "fieldContext": "",
+                  "fieldDataType": ""
+                }
+              ]
+            }
+          },
+          "queries": [
+            {
+              "kind": "raw",
+              "spec": {
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "logs",
+                    "source": "",
+                    "disabled": false,
+                    "filter": {
+                      "expression": "deployment.environment = 'demo3' AND host.name = 'demo3-nginx' AND log.file.path = '/var/log/nginx/access.log' AND severity_number >= 17"
+                    },
+                    "order": [
+                      {
+                        "key": {
+                          "name": "timestamp",
+                          "signal": "",
+                          "fieldContext": "",
+                          "fieldDataType": ""
+                        },
+                        "direction": "desc"
+                      }
+                    ],
+                    "legend": ""
+                  }
+                }
+              }
+            }
+          ],
+          "links": null
+        }
+      }
+    },
+    "layouts": [
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Overview"
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/20d043d2-3519-4cdf-85b8-477efd82dcb7"
+              }
+            },
+            {
+              "x": 6,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/6a2e5137-ec7e-4e37-bd8d-d699e0de7160"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Connections"
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/28bf3d45-2a9f-4bab-9c27-33324a76704d"
+              }
+            },
+            {
+              "x": 6,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/4cca2c75-23d8-496c-b1b7-8e5190138497"
+              }
+            },
+            {
+              "x": 0,
+              "y": 6,
+              "width": 6,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/0d97f5d5-4552-4fb9-abb0-0825293e0d1f"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Traffic"
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/6b81bcf8-85d8-4a01-bd4a-88938da8d2e8"
+              }
+            },
+            {
+              "x": 6,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/b4d8871c-edee-492d-af8d-3be955e6cf90"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Logs"
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/637daf08-ea7a-464f-b1ee-90e6304b3c01"
+              }
+            },
+            {
+              "x": 6,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/f2acc5c9-53cf-4c67-8e1b-599d690a57bc"
+              }
+            },
+            {
+              "x": 0,
+              "y": 6,
+              "width": 12,
+              "height": 6,
+              "content": {
+                "$ref": "#/spec/panels/19f5cce7-e649-5fcc-bc86-c8251936fb9c"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "duration": "",
+    "refreshInterval": "",
+    "links": null
+  },
+  "tags": [],
+  "image": "/assets/Icons/eight-ball"
+}
