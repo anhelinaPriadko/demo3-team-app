@@ -454,3 +454,191 @@ SigNoz та OTLP HTTP ingestion.
 підготовлений до наступного етапу --- підключення OpenTelemetry
 Collectors з GCP. Наскрізну інтеграцію, OTLP gRPC ingestion та резервне
 копіювання потрібно підтвердити окремо.
+
+## 12. Retention (термін зберігання даних)
+
+Налаштовано в UI: **Settings → General → Retention**.
+
+  Сигнал    Термін    Причина
+  --------- --------- -----------------------------------------------------------
+  Metrics   30 днів   займають мало місця, місяць історії потрібен для звіту SLO
+  Logs      7 днів    найбільший обсяг (syslog з VM, access log Nginx)
+  Traces    7 днів    знадобляться після підключення Java Agent
+
+Диск `/data` має лише 10 GiB. Якщо ClickHouse його заповнить, приймання
+телеметрії зупиниться. Тому заповненість `/data` контролює ще й heartbeat
+(розділ 15). Ручна перевірка:
+
+``` bash
+df -h /data
+```
+
+## 13. Email-сповіщення (SMTP)
+
+SigNoz надсилає листи через вбудований Alertmanager, якому потрібен
+SMTP-сервер. Використовується Gmail (`smtp.gmail.com:587`, STARTTLS) з
+App password.
+
+Згенерований Foundry файл `/opt/signoz/pours/deployment/compose.yaml`
+**не редагується**: наступний запуск `foundryctl` його перезапише.
+Натомість SMTP-налаштування лежать в окремих файлах поза `pours/`:
+
+- `/opt/signoz/smtp.env`: змінні `SIGNOZ_ALERTMANAGER_SIGNOZ_GLOBAL_SMTP__*`
+    і `SIGNOZ_ALERTMANAGER_SIGNOZ_EXTERNAL__URL`, разом з App password.
+    Права `600`, власник root.
+- `/opt/signoz/smtp-override.yaml`: compose override, який додає
+    `env_file` до сервісу SigNoz.
+
+Вміст override-файлу:
+
+``` yaml
+services:
+  signoz:
+    env_file:
+      - /opt/signoz/smtp.env
+```
+
+Пароль зберігається лише на сервері, у репозиторій і документацію він не
+потрапляє.
+
+### Перезапуск SigNoz (обов'язково з override)
+
+``` bash
+cd /opt/signoz/pours/deployment
+docker compose -f compose.yaml -f /opt/signoz/smtp-override.yaml config --quiet && echo "config OK"
+docker compose -f compose.yaml -f /opt/signoz/smtp-override.yaml up -d signoz
+```
+
+> **Важливо:** будь-який запуск або перезапуск SigNoz через
+> `docker compose` робити **лише з `-f /opt/signoz/smtp-override.yaml`**.
+> Без нього контейнер перестворюється без SMTP-змінних, і листи
+> перестають надсилатися. Після reboot VM налаштування зберігаються:
+> Docker піднімає той самий контейнер з тим самим env.
+
+### Перевірка
+
+``` bash
+docker exec signoz-signoz-0 env | grep -c '^SIGNOZ_ALERTMANAGER_SIGNOZ_GLOBAL_SMTP__'
+docker logs --since 5m signoz-signoz-0 2>&1 | grep -iE 'smtp|alertmanager' | tail -n 20
+```
+
+Перша команда має вивести `6`. У логах не повинно бути
+`smtp_auth_username is not configured`.
+
+### Канал у UI
+
+**Settings → Notification Channels**: канал `demo3-email`, тип Email,
+*Send resolved alerts* увімкнено. Тестовий лист доставлено успішно.
+
+## 14. Алерти
+
+У SigNoz створено 16 правил. Для всіх: канал `demo3-email`, мітки
+`team=demo3`, `area=<infra|nginx|db|etcd>`, `severity=<critical|warning>`.
+В описі кожного алерту є посилання на дашборд і на runbook у
+`docs/runbooks/`.
+
+  #    Алерт                      Тип      Умова                                         Severity
+  ---- -------------------------- -------- --------------------------------------------- ----------
+  1    Host not reporting         Metric   немає даних від хоста 5 хв                    critical
+  2    High CPU                   Metric   CPU > 85 % протягом 10 хв                     warning
+  3    High memory                Metric   RAM > 90 % протягом 5 хв                      warning
+  4    Disk almost full           Metric   диск > 85 %                                   warning
+  5    Disk full                  Metric   диск > 95 %                                   critical
+  6    Nginx down                 Metric   `nginx_up` < 1 або немає даних 5 хв           critical
+  7    Nginx 5xx errors           Log      > 10 відповідей 5xx за 5 хв                   warning
+  8    PostgreSQL exporter down   Metric   `up{service.name=postgresql}` < 1, 2 хв       critical
+  9    No Patroni leader          Metric   лідерів < 1 або немає даних 5 хв              critical
+  10   Patroni split brain        Metric   лідерів > 1                                   critical
+  11   Replica not streaming      Metric   реплік у streaming < 1, 3 хв                  warning
+  12   Replication lag            Metric   відставання > 30 с протягом 5 хв              warning
+  13   Failover happened          Log      у логах Patroni `promoted self to leader`     warning
+  14   etcd quorum at risk        Metric   працюють < 3 вузлів etcd, 2 хв                warning
+  15   etcd quorum lost           Metric   працюють < 2 вузлів etcd                      critical
+  16   etcd no leader             Metric   `etcd_server_has_leader` < 1, 1 хв            critical
+
+**Поточний стан:** усі правила створені, але **вимкнені**, доки
+OpenTelemetry Collector не розгорнуто на VM у GCP. Після розгортання
+їх треба ввімкнути і провести тести спрацювання (зупинка Collector-а,
+навантаження CPU, заповнення диска, switchover Patroni).
+
+У SigNoz v0.151 в UI немає експорту правил алертів. Тому їх параметри
+зафіксовано в цьому розділі. Після перевстановлення SigNoz правила треба
+створити заново за цією таблицею.
+
+## 15. Heartbeat (dead man's switch) для самого SigNoz
+
+**Навіщо.** Усі алерти надсилає сам SigNoz. Якщо впаде VM, Docker,
+ClickHouse або заповниться диск, жоден алерт не прийде. Зовнішній
+uptime-check SigNoz не перевірить, бо сервер у приватній мережі. Тому
+SigNoz сам кожні 5 хвилин «відмічається» на зовнішньому сервісі
+healthchecks.io. Якщо відмітки немає, лист надсилає вже healthchecks.io.
+
+### healthchecks.io
+
+  Параметр       Значення
+  -------------- -------------------------------------
+  Check          `demo3-signoz`
+  Schedule       Simple, період **5 хв**, grace **10 хв**
+  Сповіщення     email (командна пошта)
+
+Ping URL (`https://hc-ping.com/<uuid>`) є секретом і зберігається лише на
+сервері.
+
+### Що перевіряє скрипт
+
+Скрипт `signoz/heartbeat/signoz-heartbeat.sh` (у репозиторії),
+встановлений як `/usr/local/bin/signoz-heartbeat.sh`:
+
+1. API SigNoz відповідає: `http://localhost:8080/api/v1/health`.
+2. Ingester приймає OTLP на `:4318`, відповідає `200`.
+3. `/data` заповнений менше ніж на 90 %.
+4. Запущено щонайменше 5 контейнерів SigNoz.
+
+Якщо все гаразд, скрипт надсилає ping. Якщо якась перевірка не пройшла,
+надсилає `/fail` з причиною, і лист приходить одразу. Якщо не працює
+сама VM або cron, ping не приходить, і через 15 хв healthchecks.io
+надсилає лист *DOWN*.
+
+### Файли на сервері
+
+  Файл                                    Призначення
+  --------------------------------------- -----------------------------------------
+  `/usr/local/bin/signoz-heartbeat.sh`    скрипт, права `755`
+  `/opt/signoz/heartbeat.url`             ping URL, права `600`
+  `/etc/cron.d/signoz-heartbeat`          запуск кожні 5 хв
+  `/etc/logrotate.d/signoz-heartbeat`     ротація лога щотижня, 4 копії
+  `/var/log/signoz-heartbeat.log`         лог запусків
+
+Вміст `/etc/cron.d/signoz-heartbeat`:
+
+``` text
+*/5 * * * * root /usr/local/bin/signoz-heartbeat.sh >> /var/log/signoz-heartbeat.log 2>&1
+```
+
+### Перевірка
+
+``` bash
+/usr/local/bin/signoz-heartbeat.sh                  # очікується: ... ok disk=NN% containers=5
+DISK_LIMIT=1 /usr/local/bin/signoz-heartbeat.sh     # тест: одразу лист DOWN
+/usr/local/bin/signoz-heartbeat.sh                  # повернення: лист UP
+tail -n 20 /var/log/signoz-heartbeat.log
+```
+
+### Обмеження
+
+Скрипт, URL і cron лежать на root-диску EC2. Якщо Terraform перестворить
+інстанс, їх треба встановити знову (або додати в `user_data`).
+
+## 16. Дашборди
+
+Виправлені дашборди експортовано в JSON і збережено в репозиторії,
+`signoz/dashboards/`:
+
+- `infrastructure-overview.json`: Demo3: Infrastructure Overview
+- `nginx-load-balancer.json`: Demo3: Nginx & Load Balancer
+- `application-observability.json`: Demo3: Application Observability
+- `postgresql-replication.json`: Demo3: PostgreSQL & Replication
+- `patroni-etcd-ha.json`: Demo3: Patroni & etcd HA
+
+Відновлення: **Dashboards → + New dashboard → Import JSON**. Після змін
+у UI дашборд треба знову експортувати (⋮ → Export JSON) і закомітити.
