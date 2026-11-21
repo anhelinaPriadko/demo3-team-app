@@ -4,7 +4,7 @@ set -Eeuo pipefail
 
 BACKUP_DIR="/var/backups/postgresql"
 TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
-
+BUCKET_PATH="gs://demo3-app-demo3-team1/backups/"
 BACKUP_FILE="${BACKUP_DIR}/backup_${TIMESTAMP}.sql.gz"
 TEMP_FILE="${BACKUP_FILE}.tmp"
 
