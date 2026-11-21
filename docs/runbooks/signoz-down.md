@@ -1,20 +1,20 @@
 # SigNoz down (heartbeat missing / failed)
 
-**Сигнал:** лист від healthchecks.io: check `demo3-signoz` is **DOWN** (немає пінгу > 10 хв) або повідомлення `/fail` з причиною.
-Поки SigNoz лежить, **жоден інший алерт не працює**, тому це critical.
+**Signal:** an email from healthchecks.io: check `demo3-signoz` is **DOWN** (no ping for > 10 min), or a `/fail` message with the reason.
+While SigNoz is down, **no other alert works**, so this is critical.
 
 ```
 aws ssm start-session --target i-054d48c41c4174ce6 --region eu-central-1
 sudo -i
 tail -n 20 /var/log/signoz-heartbeat.log
 ```
-Останній рядок `FAIL: ...` показує, яка саме перевірка впала.
+The last `FAIL: ...` line shows which check failed.
 
-## 1. VM / SSM недоступні
-- AWS Console → EC2 → `demo3-signoz`: стан, *Status checks*. Якщо stopped — Start.
-- Немає SSM — перевірити, що VM running і має роль `demo3-signoz`.
+## 1. VM / SSM unavailable
+- AWS Console → EC2 → `demo3-signoz`: state, *Status checks*. If it is stopped, start it.
+- No SSM: check that the VM is running and has the `demo3-signoz` role.
 
-## 2. Контейнери
+## 2. Containers
 ```
 docker ps -a --format 'table {{.Names}}\t{{.Status}}'
 cd /opt/signoz/pours/deployment
@@ -22,15 +22,15 @@ docker compose -f compose.yaml -f /opt/signoz/smtp-override.yaml up -d
 docker logs --tail 80 signoz-signoz-0
 docker logs --tail 80 signoz-telemetrystore-clickhouse-0-0
 ```
-`-f /opt/signoz/smtp-override.yaml` обов'язковий, інакше email-сповіщення зникнуть.
+`-f /opt/signoz/smtp-override.yaml` is mandatory, otherwise email notifications stop working.
 
-## 3. Диск `/data` заповнений
+## 3. `/data` disk is full
 ```
 df -h / /data
 du -sh /data/docker-volumes/*
 ```
-- Тимчасово зменшити retention: SigNoz UI → Settings → General (logs 3 дні).
-- Довгостроково — збільшити EBS-том `demo3-signoz-data` (Terraform `management-aws`), потім `resize2fs` на `/data`.
+- Short term: reduce retention in SigNoz UI → Settings → General (logs: 3 days).
+- Long term: grow the EBS volume `demo3-signoz-data` (Terraform `management-aws`), then run `resize2fs` on `/data`.
 
 ## 4. Ingestion (`OTLP HTTP ingest returned ...`)
 ```
@@ -38,7 +38,7 @@ docker logs --tail 80 signoz-ingester-1
 ss -ltnp | grep -E ':4317|:4318'
 ```
 
-## 5. Після відновлення
-- `/usr/local/bin/signoz-heartbeat.sh` вручну: має вивести `ok`, і check у healthchecks.io стане UP.
-- Перевірити, що метрики з GCP-хостів знову надходять (дашборд Infrastructure Overview).
-- Пропуск даних за час простою не відновлюється: Collector-и тримають чергу (`queue_size: 5000`) лише кілька хвилин.
+## 5. After recovery
+- Run `/usr/local/bin/signoz-heartbeat.sh` by hand: it must print `ok`, and the check in healthchecks.io turns UP.
+- Check that metrics from the GCP hosts arrive again (Infrastructure Overview dashboard).
+- Data for the outage period is not recovered: the Collectors keep a queue (`queue_size: 5000`) for only a few minutes.
