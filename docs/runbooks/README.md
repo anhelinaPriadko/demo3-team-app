@@ -1,11 +1,11 @@
 # Runbooks — Demo 3
 
-Кожен алерт SigNoz, uptime-check і heartbeat посилається на runbook з цієї теки.
-Посилання для опису алерту: `https://github.com/anhelinaPriadko/demo3-team-app/blob/main/docs/runbooks/<файл>.md`
+Every SigNoz alert, uptime check and the heartbeat link to a runbook in this folder.
+Link format for alert descriptions: `https://github.com/anhelinaPriadko/demo3-team-app/blob/main/docs/runbooks/<file>.md`
 
-## Алерт → runbook
+## Alert → runbook
 
-| Алерт / перевірка | Runbook |
+| Alert / check | Runbook |
 |---|---|
 | Uptime: site / API unavailable | [site-unavailable.md](site-unavailable.md) |
 | Host not reporting | [host-not-reporting.md](host-not-reporting.md) |
@@ -16,13 +16,13 @@
 | etcd quorum at risk / lost, etcd no leader | [etcd.md](etcd.md) |
 | SigNoz heartbeat missing / failed | [signoz-down.md](signoz-down.md) |
 
-## Доступ (однаково для всіх runbook-ів)
+## Access (the same for all runbooks)
 
-GCP VM (IAP + OS Login, твій Google-акаунт). Зони: `app-2` і `db-witness` у `europe-west3-b`, решта в `europe-west3-a`:
+GCP VMs (IAP + OS Login, your Google account). Zones: `app-2` and `db-witness` are in `europe-west3-b`, the rest in `europe-west3-a`:
 ```
 gcloud compute ssh <vm> --zone europe-west3-a --project demo3-team1 --tunnel-through-iap
 ```
-Увімкнути вимкнену VM:
+Start a stopped VM:
 ```
 gcloud compute instances start <vm> --zone europe-west3-a --project demo3-team1
 ```
@@ -31,7 +31,7 @@ AWS (SigNoz, GitLab, runner):
 aws ssm start-session --target <instance-id> --region eu-central-1
 ```
 
-| VM | Private IP | Зона |
+| VM | Private IP | Zone |
 |---|---|---|
 | demo3-nginx | 10.20.0.2 (public 34.40.82.240) | a |
 | demo3-app-1 | 10.20.1.2 | a |
@@ -41,21 +41,21 @@ aws ssm start-session --target <instance-id> --region eu-central-1
 | demo3-db-witness | 10.20.1.6 | b |
 | demo3-signoz (AWS) | 10.10.0.118, `i-054d48c41c4174ce6` | eu-central-1a |
 
-## Процес інциденту
+## Incident process
 
-1. **Визнати**: напиши в командний чат «беру <алерт>», щоб двоє не робили одне й те саме.
-2. **Оцінити вплив**: чи працює сайт (`curl -I https://cinema-service-team1.pp.ua`)? Від цього залежить, critical це чи warning.
-3. **Стабілізувати** за runbook-ом. Спершу відновити роботу, а причину шукати потім.
-4. **Оновлювати статус** у чаті кожні 15–30 хв.
-5. **Закрити**: алерт перейшов у *resolved*, сайт працює.
-6. **Postmortem** для critical-інцидентів і всього, що з'їло > 25% бюджету помилок (`docs/slo.md`).
+1. **Acknowledge**: post "taking <alert>" in the team chat so that two people do not work on the same thing.
+2. **Assess the impact**: does the site work (`curl -I https://cinema-service-team1.pp.ua`)? This decides whether it is critical or a warning.
+3. **Stabilize** using the runbook. Restore service first, look for the root cause later.
+4. **Post status updates** in the chat every 15–30 min.
+5. **Close**: the alert is *resolved* and the site works.
+6. **Postmortem** for critical incidents and for anything that consumed > 25% of the error budget (`docs/slo.md`).
 
-### Шаблон postmortem
+### Postmortem template
 ```
-# <дата> <коротка назва>
-Вплив: що не працювало, скільки хвилин, скільки бюджету SLO з'їдено
-Хронологія: час виявлення (алерт/людина), ключові дії, час відновлення
-Причина: технічна першопричина
-Що спрацювало / що ні: алерти, runbook, доступи
-Дії: задача — відповідальна людина — термін
+# <date> <short title>
+Impact: what did not work, for how many minutes, how much SLO budget was consumed
+Timeline: detection time (alert/person), key actions, recovery time
+Root cause: the technical root cause
+What worked / what did not: alerts, runbook, access
+Actions: task — owner — due date
 ```
