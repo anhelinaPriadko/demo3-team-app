@@ -7,7 +7,7 @@
 ## 1. Стан кластера (з будь-якого DB-вузла)
 ```
 gcloud compute ssh demo3-db-master --zone europe-west3-a --project demo3-team1 --tunnel-through-iap
-ENDPOINTS=http://10.20.1.4:2379,http://10.20.1.3:2379,http://<witness-ip>:2379
+ENDPOINTS=http://10.20.1.4:2379,http://10.20.1.3:2379,http://10.20.1.6:2379
 etcdctl --endpoints=$ENDPOINTS endpoint health
 etcdctl --endpoints=$ENDPOINTS endpoint status -w table
 etcdctl --endpoints=$ENDPOINTS member list -w table

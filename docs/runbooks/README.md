@@ -38,7 +38,7 @@ aws ssm start-session --target <instance-id> --region eu-central-1
 | demo3-app-2 | 10.20.1.5 | b |
 | demo3-db-master | 10.20.1.4 | a |
 | demo3-db-slave | 10.20.1.3 | a |
-| demo3-db-witness | Terraform output `private_ips` | b |
+| demo3-db-witness | 10.20.1.6 | b |
 | demo3-signoz (AWS) | 10.10.0.118, `i-054d48c41c4174ce6` | eu-central-1a |
 
 ## Процес інциденту
