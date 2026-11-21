@@ -1,8 +1,6 @@
-# Identities for the application VMs, plus access for the teammates, the deploy account
-# and the Terraform account. Applied by hand before application-gcp
+# Identities for the application VMs, plus access for the teammates, the deploy account and the Terraform account.
 
 # VM service accounts: one per VM role.
-
 locals {
   vm_roles = toset(["nginx", "app", "db", "etcd"])
 }
@@ -15,7 +13,6 @@ resource "google_service_account" "vm" {
 }
 
 # Access for the teammates: connect to the VMs through IAP with OS Login.
-
 locals {
   members = toset([for email in var.team_emails : "user:${email}"])
 
@@ -25,6 +22,7 @@ locals {
     "roles/iap.tunnelResourceAccessor", # open the IAP tunnel
     local.login_role,                   # OS Login on the VMs
     "roles/compute.viewer",             # look up instances by name and zone
+    "roles/monitoring.editor",          # uptime checks, alerts, notification channels
   ]
 
   project_bindings = {
@@ -38,7 +36,6 @@ locals {
   }
 }
 
-# Additive bindings (_member), so no existing grant on these roles is touched
 resource "google_project_iam_member" "team" {
   for_each = local.project_bindings
 
@@ -47,8 +44,7 @@ resource "google_project_iam_member" "team" {
   member  = each.value.member
 }
 
-# OS Login to a VM that runs as a service account also needs serviceAccountUser
-# on that account. Bound on the VM accounts only, never project-wide.
+# OS Login to a VM that runs as a service account needs serviceAccountUser on that account
 resource "google_service_account_iam_member" "team_use" {
   for_each = local.sa_bindings
 
@@ -121,11 +117,7 @@ resource "google_service_account_iam_member" "deploy_use" {
   member             = "serviceAccount:${google_service_account.deploy.email}"
 }
 
-# Terraform identity for the GitLab runner on AWS: creates and changes the application
-# infrastructure (the application-gcp root). The runner has no GCP key. Its AWS instance
-# role is trusted through Workload Identity Federation and exchanged for short-lived
-# tokens of the service account below.
-
+# Terraform identity for the GitLab runner on AWS: creates and changes the application infrastructure 
 resource "google_project_service" "sts" {
   project            = var.project_id
   service            = "sts.googleapis.com"
@@ -138,8 +130,6 @@ resource "google_service_account" "terraform" {
 }
 
 locals {
-  # What application-gcp creates: network, firewall, VMs, disks, addresses, bucket and its IAM.
-  # compute.admin and storage.admin also cover reading and writing the state bucket.
   terraform_roles = [
     "roles/compute.admin",
     "roles/storage.admin",
@@ -154,8 +144,7 @@ resource "google_project_iam_member" "terraform" {
   member  = "serviceAccount:${google_service_account.terraform.email}"
 }
 
-# Attach the VM service accounts to VMs (and read them). Bound on these accounts only,
-# so the pipeline cannot run a VM as any other account in the project.
+# Attach the VM service accounts to VMs
 resource "google_service_account_iam_member" "terraform_use" {
   for_each = local.vm_roles
 
@@ -195,8 +184,7 @@ resource "google_service_account_iam_member" "terraform_federation" {
   member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.aws.name}/attribute.aws_role/${var.runner_aws_role}"
 }
 
-# Public DNS zone for the domain. It lives here and not in application-gcp, so its name
-# servers stay the same when the application is destroyed and rebuilt.
+# Public DNS zone for the domain.
 
 resource "google_project_service" "dns" {
   project            = var.project_id
@@ -212,10 +200,19 @@ resource "google_dns_managed_zone" "public" {
   depends_on = [google_project_service.dns]
 }
 
-# Lets the pipeline manage records in this zone only, not other zones or project DNS settings
+# Lets the pipeline manage records in this zone only
 resource "google_dns_managed_zone_iam_member" "terraform_records" {
   project      = var.project_id
   managed_zone = google_dns_managed_zone.public.name
   role         = "roles/dns.admin"
   member       = "serviceAccount:${google_service_account.terraform.email}"
+}
+
+
+# Enable Monitor API
+
+resource "google_project_service" "monitoring" {
+  project            = var.project_id
+  service            = "monitoring.googleapis.com"
+  disable_on_destroy = false
 }
