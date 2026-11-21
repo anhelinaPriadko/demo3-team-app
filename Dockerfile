@@ -10,11 +10,16 @@ COPY src src
 RUN chmod +x mvnw && \
     ./mvnw clean package -DskipTests
 
-FROM openjdk:21-jdk-slim
+FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
+ARG OTEL_JAVA_AGENT_VERSION=2.33.1
+ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v${OTEL_JAVA_AGENT_VERSION}/opentelemetry-javaagent.jar /opt/opentelemetry-javaagent.jar
+
 COPY --from=builder /app/target/*.jar app.jar
+
+ENV JAVA_TOOL_OPTIONS="-javaagent:/opt/opentelemetry-javaagent.jar"
 
 EXPOSE 8080
 
