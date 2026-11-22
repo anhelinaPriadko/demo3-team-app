@@ -12,6 +12,13 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
+REPLICA_USER_NAME=$(gcloud secrets versions access latest --secret="demo3-db-replication-username")
+REPLICA_USER_PSWD=$(gcloud secrets versions access latest --secret="demo3-db-replication-password")
+REPLICA_USER_PSWD_ESCAPED=${REPLICA_USER_PSWD//\'/\'\'}
+SUPERUSER_NAME=$(gcloud secrets versions access latest --secret="demo3-db-superuser-username")
+SUPERUSER_PSWD=$(gcloud secrets versions access latest --secret="demo3-db-superuser-password")
+SUPERUSER_PSWD_ESCAPED=${SUPERUSER_PSWD//\'/\'\'}
+
 echo "=== 1. Installing etcd on Master node ==="
 apt-get update
 apt-get install -y etcd-server etcd-client
@@ -94,11 +101,11 @@ postgresql:
   pgpass: /var/lib/postgresql/.pgpass
   authentication:
     replication:
-      username: replicator
-      password: "StrongReplicationPassword123!"
+      username: "${REPLICA_USER_NAME}"
+      password: "${REPLICA_USER_PSWD_ESCAPED}"
     superuser:
-      username: postgres
-      password: "StrongSuperuserPassword123!"
+      username: "${SUPERUSER_NAME}"
+      password: "${SUPERUSER_PSWD_ESCAPED}"
   parameters:
     unix_socket_directories: '/var/run/postgresql'
   pg_hba:
@@ -118,4 +125,33 @@ chmod 640 /etc/patroni/config.yml
 echo "=== 4. Starting Patroni on Master ==="
 systemctl enable --now patroni
 
+echo "=== 5. Creating application database and user ==="
+sleep 30
+
+IS_REPLICA=$(sudo -u postgres psql -tAc "SELECT pg_is_in_recovery();")
+if [[ "$IS_REPLICA" == "f" ]]; then
+    APP_DB_NAME="demo3_app"
+    APP_DB_USER=$(gcloud secrets versions access latest --secret="demo3-db-appuser-username")
+    
+    APP_DB_PASS=$(gcloud secrets versions access latest --secret="demo3-db-appuser-password")
+    APP_DB_PASS_ESCAPED=${APP_DB_PASS//\'/\'\'}
+
+    sudo -u postgres psql -v ON_ERROR_STOP=1 <<SQL
+DO \$\$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${APP_DB_USER}') THEN
+        CREATE USER ${APP_DB_USER} WITH PASSWORD '${APP_DB_PASS_ESCAPED}';
+    END IF;
+END
+\$\$;
+SQL
+
+    if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname = '${APP_DB_NAME}';" | grep -q 1; then
+        sudo -u postgres psql -v ON_ERROR_STOP=1 -c "CREATE DATABASE ${APP_DB_NAME} OWNER ${APP_DB_USER};"
+    fi
+
+    sudo -u postgres psql -v ON_ERROR_STOP=1 -c "GRANT ALL PRIVILEGES ON DATABASE ${APP_DB_NAME} TO ${APP_DB_USER};"
+else
+    echo "Node is in recovery (replica); skipping app DB/user creation."
+fi
 echo "=== Master node setup completed successfully! ==="
