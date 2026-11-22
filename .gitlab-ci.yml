@@ -1,40 +1,77 @@
-stages:
-  - validate
-  - plan
-  - apply
+stages: [validate, plan, apply, verify]
 
 default:
-  tags:
-    - gcp
-    - terraform
-    - shell
+  tags: [gcp, terraform, shell]
 
 variables:
-  TF_DIR: "terraform/application-gcp"
+  TF_DIR: terraform/application-gcp
+  TF_INPUT: "false"
+  TF_IN_AUTOMATION: "true"
+  GOOGLE_APPLICATION_CREDENTIALS: /home/gitlab-runner/gcp-credentials.json
 
-before_script:
-  - cd $TF_DIR
-  - terraform init
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS && $CI_PIPELINE_SOURCE == "push"'
+      when: never
+
+    - if: '$CI_COMMIT_BRANCH'
+
+.terraform:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+
+  before_script:
+    - terraform -chdir="$TF_DIR" init -input=false
 
 terraform_validate:
+  extends: .terraform
   stage: validate
   script:
-    - terraform validate
+    - terraform -chdir="$TF_DIR" validate
+    - bash -n ci/check-readiness.sh
 
 terraform_plan:
+  extends: .terraform
   stage: plan
   script:
-    # - terraform apply -target=google_project_service.resourcemanager -auto-approve
-    - terraform plan -out=tfplan
+    - terraform -chdir="$TF_DIR" plan -lock-timeout=5m -out=tfplan
+
   artifacts:
+    access: maintainer
     paths:
       - $TF_DIR/tfplan
-    expire_in: 1 hour
+      - $TF_DIR/.terraform.lock.hcl
+    expire_in: 1 day
 
 terraform_apply:
+  extends: .terraform
   stage: apply
+  resource_group: demo3-infrastructure
+  needs: [terraform_plan]
+
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual
+      allow_failure: false
+
   script:
-    - terraform apply -auto-approve tfplan
-  when: manual
-  only:
-    - main
+    - terraform -chdir="$TF_DIR" apply -lock-timeout=5m tfplan
+    - mkdir -p inventory
+    - terraform -chdir="$TF_DIR" output -json private_ips > inventory/ips.json
+
+  artifacts:
+    paths: [inventory/ips.json]
+    expire_in: 1 day
+
+check_deploy_readiness:
+  stage: verify
+  needs: [terraform_apply]
+
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+  script:
+    - bash ci/check-readiness.sh
