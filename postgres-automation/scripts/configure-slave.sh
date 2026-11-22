@@ -12,13 +12,21 @@ BACKUP_DST="/usr/local/bin/postgresql_backup.sh"
 CRON_JOB="0 3 * * * ${BACKUP_DST} >> /var/log/pg_backup.log 2>&1"
 
 if [[ $EUID -ne 0 ]]; then
-    echo "ERROR: Run this script as root."
+    echo "ERROR: Run this script as root." >&2
     exit 1
 fi
 if [[ ! -f "$BACKUP_SRC" ]]; then
     echo "ERROR: Backup script not found at $BACKUP_SRC" >&2
     exit 1
 fi
+
+REPLICA_USER_NAME=$(gcloud secrets versions access latest --secret="demo3-db-replication-username")
+REPLICA_USER_PSWD=$(gcloud secrets versions access latest --secret="demo3-db-replication-password")
+REPLICA_USER_PSWD_ESCAPED=${REPLICA_USER_PSWD//\'/\'\'}
+SUPERUSER_NAME=$(gcloud secrets versions access latest --secret="demo3-db-superuser-username")
+SUPERUSER_PSWD=$(gcloud secrets versions access latest --secret="demo3-db-superuser-password")
+SUPERUSER_PSWD_ESCAPED=${SUPERUSER_PSWD//\'/\'\'}
+
 echo "=== 1. Installing etcd on Slave node ==="
 apt-get update
 apt-get install -y etcd-server etcd-client
@@ -100,11 +108,11 @@ postgresql:
   pgpass: /var/lib/postgresql/.pgpass
   authentication:
     replication:
-      username: replicator
-      password: "StrongReplicationPassword123!"
+      username: "${REPLICA_USER_NAME}"
+      password: "${REPLICA_USER_PSWD_ESCAPED}"
     superuser:
-      username: postgres
-      password: "StrongSuperuserPassword123!"
+      username: "${SUPERUSER_NAME}"
+      password: "${SUPERUSER_PSWD_ESCAPED}"
   parameters:
     unix_socket_directories: '/var/run/postgresql'
   pg_hba:
