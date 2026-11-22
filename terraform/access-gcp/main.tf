@@ -208,11 +208,58 @@ resource "google_dns_managed_zone_iam_member" "terraform_records" {
   member       = "serviceAccount:${google_service_account.terraform.email}"
 }
 
-
 # Enable Monitor API
 
 resource "google_project_service" "monitoring" {
   project            = var.project_id
   service            = "monitoring.googleapis.com"
   disable_on_destroy = false
+}
+
+# Database credentials in Secret Manager.
+
+resource "google_project_service" "secretmanager" {
+  project            = var.project_id
+  service            = "secretmanager.googleapis.com"
+  disable_on_destroy = false
+}
+
+locals {
+  db_secrets = toset([
+    "superuser-username",
+    "superuser-password",
+    "replication-username",
+    "replication-password",
+    "appuser-username",
+    "appuser-password",
+  ])
+}
+
+resource "google_secret_manager_secret" "db" {
+  for_each = local.db_secrets
+
+  secret_id = "${var.name_prefix}-db-${each.key}"
+
+  replication {
+    user_managed {
+      replicas {
+        location = var.region
+      }
+    }
+  }
+
+  labels = {
+    project = var.name_prefix
+    role    = "db"
+  }
+
+  depends_on = [google_project_service.secretmanager]
+}
+
+resource "google_secret_manager_secret_iam_member" "db_access" {
+  for_each = google_secret_manager_secret.db
+
+  secret_id = each.value.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.vm["db"].email}"
 }
