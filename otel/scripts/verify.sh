@@ -41,12 +41,12 @@ if systemctl is-enabled --quiet postgres-exporter 2>/dev/null; then
     || fail "PostgreSQL exporter: pg_up is not 1 (check pg_hba/pg_ident, journalctl -u postgres-exporter)"
 fi
 
-if systemctl list-unit-files --type=service --no-legend | grep -q '^patroni'; then
+# Check endpoints required by the deployed Collector configuration.
+if grep -Eq '^[[:space:]]*prometheus/patroni:' "$CONFIG"; then
   check_http "Patroni metrics" http://127.0.0.1:8008/metrics
 fi
 
-# etcd serves /metrics on its client listener (127.0.0.1:2379)
-if systemctl list-unit-files --type=service --no-legend | grep -q '^etcd'; then
+if grep -Eq '^[[:space:]]*prometheus/etcd:' "$CONFIG"; then
   check_http "etcd metrics" http://127.0.0.1:2379/metrics
 fi
 
@@ -59,7 +59,7 @@ fi
 # Give the exporter time to send at least one batch, then look for export/permission errors
 echo "Waiting 40s for the first exports ..."
 sleep 40
-ERRORS="$(journalctl -u otelcol-contrib --since '-45s' --no-pager 2>/dev/null | grep -Ei $'\terror\t|exporting failed|dropping data|permission denied|connection refused' || true)"
+ERRORS="$(journalctl -u otelcol-contrib --since '-45s' --no-pager 2>/dev/null | grep -Ei $'\terror\t|exporting failed|dropping data|permission denied|connection refused|failed to scrape prometheus endpoint|strconv[.]ParseFloat' || true)"
 if [[ -n "$ERRORS" ]]; then
   echo "$ERRORS" | tail -n 20 >&2
   fail "Collector logged errors in the last 45 seconds"
