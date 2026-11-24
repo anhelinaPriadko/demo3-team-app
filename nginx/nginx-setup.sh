@@ -4,8 +4,10 @@ set -euo pipefail
 
 DOMAIN="cinema-service-team1.pp.ua"
 EMAIL="devops.internship.softserve@gmail.com"
-APP_SERVERS=("10.20.1.2" "10.20.1.5")
 APP_PORT="8080"
+
+#   sudo APP_IPS="10.20.1.2 10.20.1.5" bash nginx-setup.sh
+APP_IPS="${APP_IPS:-}"
 CLIENT_MAX_BODY_SIZE="10m"
 
 # Staging enabled. Switch to 0 to create a production certificate
@@ -19,6 +21,16 @@ die()  { echo -e "\033[1;31mERROR: $*\033[0m" >&2; exit 1; }
 
 # ---------- sudo check ----------
 [[ $EUID -eq 0 ]]    || die "Run as root: sudo bash $0"
+
+# ---------- app servers ----------
+read -r -a APP_SERVERS <<< "${APP_IPS//,/ }"
+[[ ${#APP_SERVERS[@]} -gt 0 ]] || die "No app servers given. Pass APP_IPS, e.g.: sudo APP_IPS=\"10.20.1.2 10.20.1.5\" bash $0"
+
+UPSTREAM_SERVERS=""
+for ip in "${APP_SERVERS[@]}"; do
+    UPSTREAM_SERVERS+="    server ${ip}:${APP_PORT} max_fails=3 fail_timeout=15s;"$'\n'
+done
+log "App servers: ${APP_SERVERS[*]}"
 
 CERTBOT_DOMAINS=()
 
@@ -59,9 +71,7 @@ server_tokens off;
 
 upstream java_app {
     least_conn;
-    server ${APP_SERVERS[0]}:${APP_PORT} max_fails=3 fail_timeout=15s;
-    server ${APP_SERVERS[1]}:${APP_PORT} max_fails=3 fail_timeout=15s;
-    keepalive 16;
+${UPSTREAM_SERVERS}    keepalive 16;
 }
 
 server {
