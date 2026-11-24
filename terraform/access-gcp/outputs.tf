@@ -60,7 +60,7 @@ output "dns_zone_name" {
 }
 
 output "db_secret_ids" {
-  description = "Secret Manager IDs of the database credentials, readable by demo3-db-sa"
+  description = "Secret Manager IDs of the database credentials. demo3-db-sa reads all, demo3-app-sa only the appuser ones"
   value       = { for k, s in google_secret_manager_secret.db : k => s.secret_id }
 }
 
