@@ -1,4 +1,4 @@
-stages: [validate, plan, apply, verify]
+stages: [validate, plan, apply, verify, deploy, observe]
 
 default:
   tags: [gcp, terraform, shell]
@@ -31,7 +31,8 @@ terraform_validate:
   stage: validate
   script:
     - terraform -chdir="$TF_DIR" validate
-    - bash -n ci/check-readiness.sh
+    - for file in ci/*.sh; do bash -n "$file"; done
+    - python3 -c "import ast, pathlib; ast.parse(pathlib.Path('ci/nginx-upstream.py').read_text())"
 
 terraform_plan:
   extends: .terraform
@@ -61,10 +62,12 @@ terraform_apply:
     - terraform -chdir="$TF_DIR" apply -lock-timeout=5m tfplan
     - mkdir -p inventory
     - terraform -chdir="$TF_DIR" output -json private_ips > inventory/ips.json
+    - terraform -chdir="$TF_DIR" output -json app_private_ips > inventory/apps.json
+    - terraform -chdir="$TF_DIR" output -json instance_names > inventory/names.json
 
   artifacts:
-    paths: [inventory/ips.json]
-    expire_in: 1 day
+    paths: [inventory/]
+    expire_in: 7 days
 
 check_deploy_readiness:
   stage: verify
@@ -75,3 +78,47 @@ check_deploy_readiness:
 
   script:
     - bash ci/check-readiness.sh
+
+.delivery:
+  stage: deploy
+  resource_group: demo3-infrastructure
+  timeout: 45m
+  needs:
+    - job: terraform_apply
+      artifacts: true
+    - job: check_deploy_readiness
+      artifacts: false
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+deploy_application:
+  extends: .delivery
+  environment:
+    name: production
+  script:
+    - bash ci/deploy.sh deploy
+
+rollback_application:
+  extends: .delivery
+  environment:
+    name: production
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual
+      allow_failure: true
+  script:
+    - bash ci/deploy.sh rollback
+
+deploy_observability:
+  stage: observe
+  resource_group: demo3-infrastructure
+  timeout: 45m
+  needs:
+    - job: terraform_apply
+      artifacts: true
+    - job: deploy_application
+      artifacts: false
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  script:
+    - bash ci/deploy-observability.sh

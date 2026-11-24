@@ -22,27 +22,37 @@ import json
 
 ips = json.load(open("inventory/ips.json"))
 
-for key in (
-    "nginx",
-    "app-1",
-    "app-2",
-    "db_master",
-    "db_slave",
-    "db_witness",
-):
-    print(key, ipaddress.ip_address(ips[key]), sep="\t")
+apps = sorted(
+    (key for key in ips if key.startswith("app-")),
+    key=lambda key: int(key.split("-")[1]),
+)
+assert apps, "No application VMs in inventory"
+
+endpoints = ",".join(
+    "http://" + str(ipaddress.IPv4Address(ips[key])) + ":2379"
+    for key in ("db_master", "db_slave", "db_witness")
+)
+
+for key in ["nginx", *apps, "db_master", "db_slave", "db_witness"]:
+    print(
+        key,
+        ipaddress.IPv4Address(ips[key]),
+        endpoints,
+        sep="\t",
+    )
 PY
 
 failed=0
 
-while IFS=$'\t' read -r role ip; do
+while IFS=$'\t' read -r role ip endpoints; do
   printf '\n=== %s (%s) ===\n' "$role" "$ip"
 
   if ! ssh "${opts[@]}" "$SSH_USER@$ip" \
-    "sudo -n bash -s -- '$role'" <<'REMOTE'
+    "sudo -n bash -s -- '$role' '$endpoints'" <<'REMOTE'
 set -uo pipefail
 
 role=$1
+endpoints=$2
 bad=0
 
 hostname
@@ -149,7 +159,7 @@ PY
     systemctl is-active etcd || bad=1
 
     ETCDCTL_API=3 timeout 20s etcdctl \
-      --endpoints=http://10.20.1.4:2379,http://10.20.1.3:2379,http://10.20.1.6:2379 \
+      --endpoints="$endpoints" \
       endpoint health || bad=1
     ;;
 esac
