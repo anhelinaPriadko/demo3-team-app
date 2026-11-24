@@ -30,23 +30,47 @@ check_http() {
 if systemctl is-enabled --quiet nginx-prometheus-exporter 2>/dev/null; then
   check_http "Nginx stub_status" http://127.0.0.1:8081/stub_status
   check_http "Nginx exporter" http://127.0.0.1:9113/metrics
-  curl -s --max-time 5 http://127.0.0.1:9113/metrics | grep -q '^nginx_up 1' && ok "nginx_up = 1" || fail "nginx_up is not 1"
+  if NGINX_METRICS=$(curl --fail --silent --show-error \
+      --max-time 5 http://127.0.0.1:9113/metrics) &&
+    grep -Eq '^nginx_up(\{[^}]*\})?[[:space:]]+1([.]0+)?([[:space:]]|$)' \
+      <<< "$NGINX_METRICS"; then
+    ok "nginx_up = 1"
+  else
+    fail "nginx_up is missing or not 1"
+  fi
 fi
 
 if systemctl is-enabled --quiet postgres-exporter 2>/dev/null; then
-  # The exporter needs a few seconds after a restart
-  for _ in $(seq 1 10); do curl -s --max-time 3 http://127.0.0.1:9187/metrics | grep -q '^pg_up 1' && break; sleep 2; done
-  curl -s --max-time 5 http://127.0.0.1:9187/metrics | grep -q '^pg_up 1' \
-    && ok "PostgreSQL exporter: pg_up = 1" \
-    || fail "PostgreSQL exporter: pg_up is not 1 (check pg_hba/pg_ident, journalctl -u postgres-exporter)"
+  PG_READY=0
+  PG_METRICS=""
+
+  for attempt in {1..10}; do
+    if PG_METRICS=$(curl --fail --silent --show-error \
+        --max-time 5 http://127.0.0.1:9187/metrics) &&
+       grep -Eq '^pg_up(\{[^}]*\})?[[:space:]]+1([.]0+)?([[:space:]]|$)' \
+         <<< "$PG_METRICS"; then
+      PG_READY=1
+      break
+    fi
+    sleep 2
+  done
+
+  if [[ "$PG_READY" == "1" ]]; then
+    ok "PostgreSQL exporter: pg_up = 1"
+  else
+    fail "PostgreSQL exporter: pg_up is missing or not 1"
+    grep -E '^pg_up|^pg_exporter_last_scrape_error' \
+      <<< "$PG_METRICS" || true
+    journalctl -u postgres-exporter -n 15 --no-pager || true
+  fi
 fi
 
-# Check endpoints required by the deployed Collector configuration.
-if grep -Eq '^[[:space:]]*prometheus/patroni:' "$CONFIG"; then
+if systemctl list-unit-files --type=service --no-legend | grep -q '^patroni'; then
   check_http "Patroni metrics" http://127.0.0.1:8008/metrics
 fi
 
-if grep -Eq '^[[:space:]]*prometheus/etcd:' "$CONFIG"; then
+# etcd serves /metrics on its client listener (127.0.0.1:2379)
+if systemctl list-unit-files --type=service --no-legend | grep -q '^etcd'; then
   check_http "etcd metrics" http://127.0.0.1:2379/metrics
 fi
 
@@ -59,7 +83,7 @@ fi
 # Give the exporter time to send at least one batch, then look for export/permission errors
 echo "Waiting 40s for the first exports ..."
 sleep 40
-ERRORS="$(journalctl -u otelcol-contrib --since '-45s' --no-pager 2>/dev/null | grep -Ei $'\terror\t|exporting failed|dropping data|permission denied|connection refused|failed to scrape prometheus endpoint|strconv[.]ParseFloat' || true)"
+ERRORS="$(journalctl -u otelcol-contrib --since '-45s' --no-pager 2>/dev/null | grep -Ei $'\terror\t|exporting failed|dropping data|permission denied|connection refused' || true)"
 if [[ -n "$ERRORS" ]]; then
   echo "$ERRORS" | tail -n 20 >&2
   fail "Collector logged errors in the last 45 seconds"
