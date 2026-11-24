@@ -30,8 +30,17 @@ Secret Manager holds the PostgreSQL credentials, one secret each, stored in `eur
 | `demo3-db-superuser-password` | its password |
 | `demo3-db-replication-username` | replication user name |
 | `demo3-db-replication-password` | its password |
+| `demo3-db-appuser-username` | database user the Java application connects as |
+| `demo3-db-appuser-password` | its password |
 
-Terraform creates only the empty secrets and their access, never the values, so no password ends up in the Terraform state. Add each value once by hand with the commands in the `db_secret_add_commands` output; a new value is a new version, the old ones are kept. Only `demo3-db-sa` has `roles/secretmanager.secretAccessor`, on these four secrets, so only the database VMs can read them:
+Terraform creates only the empty secrets and their access, never the values, so no password ends up in the Terraform state. Add each value once by hand with the commands in the `db_secret_add_commands` output; a new value is a new version, the old ones are kept. Access (`roles/secretmanager.secretAccessor`, granted per secret):
+
+| Service account | Can read |
+|---|---|
+| `demo3-db-sa` (database VMs) | all six, since the setup also creates the application user in PostgreSQL |
+| `demo3-app-sa` (app VMs) | only `demo3-db-appuser-username` and `demo3-db-appuser-password` |
+
+Nginx and the witness cannot read any of them. On a VM, the value is read as the VM's own account:
 
 ```bash
 gcloud secrets versions access latest --secret=demo3-db-superuser-password

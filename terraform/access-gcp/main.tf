@@ -233,6 +233,8 @@ locals {
     "appuser-username",
     "appuser-password",
   ])
+
+  app_secrets = toset(["appuser-username", "appuser-password"])
 }
 
 resource "google_secret_manager_secret" "db" {
@@ -262,4 +264,12 @@ resource "google_secret_manager_secret_iam_member" "db_access" {
   secret_id = each.value.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.vm["db"].email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "app_access" {
+  for_each = local.app_secrets
+
+  secret_id = google_secret_manager_secret.db[each.key].id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.vm["app"].email}"
 }
