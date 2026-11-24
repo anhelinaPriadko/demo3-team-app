@@ -2,8 +2,6 @@ locals {
   bucket_name = "${var.name_prefix}-app-${var.project_id}"
 }
 
-# The VM service accounts are created in access-gcp (applied by hand, before this root).
-# This root only attaches them to the VMs and grants them access to the bucket.
 data "google_service_account" "vm" {
   for_each   = toset(["nginx", "app", "db", "etcd"])
   account_id = "${var.name_prefix}-${each.key}-sa"
@@ -11,6 +9,10 @@ data "google_service_account" "vm" {
 
 locals {
   vm_sa_email = { for k, sa in data.google_service_account.vm : k => sa.email }
+
+  app_zone = {
+    for i in range(var.app_count) : "app-${i + 1}" => var.app_zones[i % length(var.app_zones)]
+  }
 }
 
 module "network" {
@@ -55,16 +57,15 @@ module "nginx" {
 
 module "app" {
   source   = "./modules/compute"
-  for_each = var.app_instances
+  for_each = local.app_zone
 
   name                  = "${var.name_prefix}-${each.key}"
   machine_type          = "e2-small"
-  zone                  = each.value.zone
+  zone                  = each.value
   subnet_self_link      = module.network.private_subnet_self_link
   network_tags          = ["app"]
   service_account_email = local.vm_sa_email["app"]
   reserve_internal_ip   = true
-  internal_ip           = each.value.internal_ip
 }
 
 module "db_master" {

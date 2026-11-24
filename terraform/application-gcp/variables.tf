@@ -63,14 +63,24 @@ variable "management_cidr" {
   default     = "10.10.0.0/16"
 }
 
-variable "app_instances" {
-  type = map(object({
-    zone        = string
-    internal_ip = optional(string)
-  }))
-  description = "Application VMs behind Nginx, keyed by name suffix (demo3-<key>). Put them in different zones for redundancy"
-  default = {
-    "app-1" = { zone = "europe-west3-a", internal_ip = "10.20.1.2" }
-    "app-2" = { zone = "europe-west3-b", internal_ip = "10.20.1.5" }
+variable "app_count" {
+  type        = number
+  description = "Number of application VMs behind Nginx, named <name_prefix>-app-1, -app-2, ..."
+  default     = 2
+
+  validation {
+    condition     = var.app_count >= 1 && floor(var.app_count) == var.app_count
+    error_message = "app_count must be a whole number of at least 1."
+  }
+}
+
+variable "app_zones" {
+  type        = list(string)
+  description = "Zones the app VMs are spread over in turn: index 0 (app-1), 2, 4, ... in the first zone, index 1 (app-2), 3, 5, ... in the second"
+  default     = ["europe-west3-a", "europe-west3-b"]
+
+  validation {
+    condition     = length(var.app_zones) >= 1
+    error_message = "Give at least one zone."
   }
 }
