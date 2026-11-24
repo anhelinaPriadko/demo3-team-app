@@ -1,6 +1,6 @@
 # access-gcp
 
-Terraform root that controls who and what can access the GCP application project: the VM service accounts and their project roles, the team's access to the VMs, the identity the GitLab runner uses to deploy, and the identity it uses to run Terraform. It manages identities and access, plus the public DNS zone, and creates no other infrastructure.
+Terraform root that controls who and what can access the GCP application project: the VM service accounts and their project roles, the team's access to the VMs, the identity the GitLab runner uses to deploy, and the identity it uses to run Terraform. It manages identities and access, plus the public DNS zone and the database secrets, and creates no other infrastructure.
 
 State: GCS bucket `demo3-tfstate-gcp`, prefix `demo3/access`.
 
@@ -19,6 +19,25 @@ The accounts hold no project roles. Logs and metrics go to SigNoz over OpenTelem
 Cloud DNS zone `demo3-public` for `domain_name`. It is kept here rather than in `application-gcp` so that its name servers do not change when the application is destroyed and rebuilt. After the first apply, set the name servers from the `dns_name_servers` output at the domain registrar (once). `application-gcp` adds the A records for the domain and `www`.
 
 The Terraform service account gets `roles/dns.admin` on this zone only, so the pipeline can manage its records but no other zone. The root also enables `dns.googleapis.com`.
+
+## Database secrets
+
+Secret Manager holds the PostgreSQL credentials, one secret each, stored in `europe-west3` only:
+
+| Secret | Content |
+|---|---|
+| `demo3-db-superuser-username` | PostgreSQL superuser name |
+| `demo3-db-superuser-password` | its password |
+| `demo3-db-replication-username` | replication user name |
+| `demo3-db-replication-password` | its password |
+
+Terraform creates only the empty secrets and their access, never the values, so no password ends up in the Terraform state. Add each value once by hand with the commands in the `db_secret_add_commands` output; a new value is a new version, the old ones are kept. Only `demo3-db-sa` has `roles/secretmanager.secretAccessor`, on these four secrets, so only the database VMs can read them:
+
+```bash
+gcloud secrets versions access latest --secret=demo3-db-superuser-password
+```
+
+The root also enables `secretmanager.googleapis.com`.
 
 ## Team access
 
@@ -97,7 +116,7 @@ The `runner_credential_config_command` output contains the command that creates 
 
 ## Outputs
 
-`vm_sa_emails`, `team_members`, `granted_project_roles`, `connect_command`, `power_commands`, `deploy_sa_email`, `deploy_key_commands`, `terraform_sa_email`, `runner_credential_config_command`, `dns_name_servers`, `dns_zone_name`.
+`vm_sa_emails`, `team_members`, `granted_project_roles`, `connect_command`, `power_commands`, `deploy_sa_email`, `deploy_key_commands`, `terraform_sa_email`, `runner_credential_config_command`, `dns_name_servers`, `dns_zone_name`, `db_secret_ids`, `db_secret_add_commands`.
 
 ## Notes
 

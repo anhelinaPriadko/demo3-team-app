@@ -58,3 +58,16 @@ output "dns_zone_name" {
   description = "Name of the Cloud DNS zone, used by application-gcp to add records"
   value       = google_dns_managed_zone.public.name
 }
+
+output "db_secret_ids" {
+  description = "Secret Manager IDs of the database credentials, readable by demo3-db-sa"
+  value       = { for k, s in google_secret_manager_secret.db : k => s.secret_id }
+}
+
+output "db_secret_add_commands" {
+  description = "Run by hand once to set each value"
+  value = {
+    for k, s in google_secret_manager_secret.db :
+    k => "printf '%s' '<value>' | gcloud secrets versions add ${s.secret_id} --project ${var.project_id} --data-file=-"
+  }
+}

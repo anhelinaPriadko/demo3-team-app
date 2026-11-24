@@ -20,6 +20,11 @@ output "private_ips" {
   value       = { for name, m in local.instances : name => m.private_ip }
 }
 
+output "app_private_ips" {
+  description = "Internal IPs of the app VMs (app-1, app-2, ... in order), for deployments from the runner"
+  value       = [for i in range(var.app_count) : module.app["app-${i + 1}"].private_ip]
+}
+
 output "app_upstream" {
   description = "App servers for the Nginx upstream block"
   value       = [for m in module.app : "${m.private_ip}:${var.app_port}"]

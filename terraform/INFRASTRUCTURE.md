@@ -16,8 +16,8 @@ All run Ubuntu 24.04 LTS, have encrypted disks, and have no public IP except Ngi
 | Instance            | Cloud | Role                                                | Type           | CPU / RAM       | Disks                   | Private IP             | Public IP                 |
 | ------------------- | ----- | --------------------------------------------------- | -------------- | --------------- | ----------------------- | ---------------------- | ------------------------- |
 | `demo3-nginx`     | GCP   | reverse proxy and load balancer, public entry point | e2-small       | 2 shared / 2 GB | 15 GB boot              | `10.20.0.2`          | `34.40.82.240` (static) |
-| `demo3-app-1`     | GCP   | Java application, port 8080 (zone a)                | e2-medium      | 2 shared / 4 GB | 15 GB boot              | `10.20.1.2` (static) | none                      |
-| `demo3-app-2`     | GCP   | Java application, port 8080 (zone b)                | e2-medium      | 2 shared / 4 GB | 15 GB boot              | `10.20.1.5` (static) | none                      |
+| `demo3-app-1`     | GCP   | Java application, port 8080 (zone a)                | e2-medium      | 2 shared / 4 GB | 15 GB boot              | `10.20.1.2` (reserved, from GCP) | none                      |
+| `demo3-app-2`     | GCP   | Java application, port 8080 (zone b)                | e2-medium      | 2 shared / 4 GB | 15 GB boot              | `10.20.1.5` (reserved, from GCP) | none                      |
 | `demo3-db-master` | GCP   | PostgreSQL master                                   | e2-medium      | 2 shared / 4 GB | 15 GB boot + 20 GB data | `10.20.1.4` (static) | none                      |
 | `demo3-db-slave`  | GCP   | PostgreSQL replica                                  | e2-medium      | 2 shared / 4 GB | 15 GB boot + 20 GB data | `10.20.1.3` (static) | none                      |
 | `demo3-db-witness` | GCP  | etcd witness, third member of the database cluster (zone b) | e2-small | 2 shared / 2 GB | 15 GB boot | reserved at first apply (output `private_ips`) | none |
@@ -78,7 +78,7 @@ Not allowed: the internet reaching the app, the databases, GitLab or SigNoz; GCP
 ssh -i ~/.ssh/runner_deploy sa_116687368623049818165@10.20.1.2
 ```
 
-Use the VM's private IP: `10.20.1.2` (app-1), `10.20.1.5` (app-2), `10.20.1.4` (db master), `10.20.1.3` (db slave), `10.20.0.2` (nginx). The witness address is in the `private_ips` output. A deployment has to go to both app servers. The account has no sudo (`deploy_can_sudo = false`).
+Use the VM's private IP from the `application-gcp` outputs: `private_ips` for every VM, `app_private_ips` for all app servers. Addresses are picked by GCP, so read them after each apply instead of hardcoding them. A deployment has to go to every app server. The account has sudo (`deploy_can_sudo = true`).
 
 **Runner Terraform access.** The runner has no GCP key. Its AWS role `demo3-runner` is trusted by a GCP identity pool (`demo3-aws`), and jobs swap that identity for short-lived tokens of `demo3-terraform-sa`. For this the runner needs a credentials file (no secrets in it) and `GOOGLE_APPLICATION_CREDENTIALS` pointing at it; jobs must use the shell executor. Setup steps for whoever manages the runner: `access-gcp/RUNNER_SETUP.md`. This covers the `application-gcp` root only.
 
