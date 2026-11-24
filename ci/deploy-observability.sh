@@ -38,12 +38,30 @@ for key, ip in ips.items():
     )
 PY
 
+expected=$(python3 -c 'import json; print(len(json.load(open("inventory/ips.json"))))')
+(( expected > 0 )) || {
+  echo 'Inventory is empty' >&2
+  exit 1
+}
+
+deployed=0
+
 while IFS=$'\t' read -r ip role vm; do
   echo "Deploying Collector: $vm ($role)"
 
   tar -czf - otel | ssh "${opts[@]}" "$SSH_USER@$ip" \
     'sudo -n tar --no-same-owner -xzf - -C /tmp'
 
-  ssh "${opts[@]}" "$SSH_USER@$ip" \
+  ssh -n "${opts[@]}" "$SSH_USER@$ip" \
     "sudo -n bash /tmp/otel/scripts/deploy.sh '$role' '$vm'"
+
+  deployed=$((deployed + 1))
+  echo "Collector completed: $vm"
 done < inventory/otel.tsv
+
+[[ $deployed -eq $expected ]] || {
+  echo "Incomplete deployment: $deployed/$expected VMs" >&2
+  exit 1
+}
+
+echo "Collectors deployed successfully: $deployed/$expected"
