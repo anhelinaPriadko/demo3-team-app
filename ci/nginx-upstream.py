@@ -10,14 +10,14 @@ original = path.read_text()
 
 matches = list(
     re.finditer(
-        r"upstream\s+java_app\s*\{([^}]*)\}",
+        r"upstream\s+demo3\s*\{([^}]*)\}",
         original,
         re.S,
     )
 )
 
 if len(matches) != 1:
-    raise SystemExit("Expected one upstream java_app in app.conf")
+    raise SystemExit("Expected one upstream demo3 in app.conf")
 
 block = matches[0]
 
