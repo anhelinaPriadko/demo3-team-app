@@ -37,6 +37,7 @@ apt-get install -y \
     postgresql-client-16 \
     patroni \
     python3-venv \
+    python3-pip \
     python3-psycopg2 \
     python3-etcd
 
