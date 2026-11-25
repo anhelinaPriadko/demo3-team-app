@@ -32,7 +32,18 @@ systemctl enable --now etcd
 systemctl restart etcd
 
 echo "=== 2. Installing PostgreSQL 16, Patroni and dependencies ==="
-apt-get install -y postgresql-16 postgresql-client-16 patroni python3-psycopg2 python3-etcd
+apt-get install -y \
+    postgresql-16 \
+    postgresql-client-16 \
+    patroni \
+    python3-venv \
+    python3-psycopg2 \
+    python3-etcd
+
+python3 -m venv --system-site-packages /opt/patroni-3.3.3
+
+/opt/patroni-3.3.3/bin/pip install \
+    "patroni[etcd3]==3.3.3"
 
 systemctl stop postgresql
 systemctl disable postgresql
